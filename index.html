@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RaceBox Web — GPS Drag Timer (App Style)</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">RaceBox Web</div>
+      <div class="modes">
+        <select id="modeSelect" title="Pilih mode">
+          <option value="201">201 m (1/8 mile)</option>
+          <option value="402">402 m (1/4 mile)</option>
+          <option value="0-100">0→100 km/h</option>
+          <option value="0-140">0→140 km/h</option>
+          <option value="60-100">60→100 km/h (rolling)</option>
+        </select>
+      </div>
+    </header>
+
+    <section class="display">
+      <div class="left-panel">
+        <div class="big-speed" id="speedDisplay">0.0</div>
+        <div class="unit">km/h</div>
+        <div class="small-row">
+          <div><strong>Distance</strong><div id="distance">0.00 m</div></div>
+          <div><strong>Time</strong><div id="time">0.000 s</div></div>
+        </div>
+      </div>
+      <div class="right-panel">
+        <div class="meters">
+          <div class="meter"><small>Peak</small><div id="peak">— km/h</div></div>
+          <div class="meter"><small>Avg</small><div id="avg">— km/h</div></div>
+          <div class="meter"><small>GPS</small><div id="accuracy">— m</div></div>
+        </div>
+        <canvas id="speedGraph" width="320" height="180"></canvas>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="armBtn" class="btn primary">ARM</button>
+      <button id="stopBtn" class="btn">STOP</button>
+      <button id="resetBtn" class="btn">RESET</button>
+      <button id="saveBtn" class="btn">SAVE RUN</button>
+      <button id="exportBtn" class="btn">EXPORT CSV</button>
+    </section>
+
+    <section class="statusbar" id="status">Status: idle</section>
+
+    <section class="history">
+      <h3>History</h3>
+      <table id="historyTable">
+        <thead><tr><th>#</th><th>Mode</th><th>Time (s)</th><th>Distance (m)</th><th>Peak (km/h)</th><th>Date</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <footer class="footer">Gunakan HP, izinkan lokasi. Ini versi web app (PWA-ready).</footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
