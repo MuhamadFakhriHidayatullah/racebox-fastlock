@@ -1,7 +1,7 @@
-/* RaceBox Web - app.js
+/* RaceBox Web - app.js (Fixed Auto-Start by Speed Only)
    Features:
    - Modes (201,402,0-100,0-140,60-100)
-   - Auto-arm & auto-start logic
+   - Auto-arm & auto-start logic (Start ONLY when speed >= 3 km/h)
    - Speed graph (canvas)
    - History saved to localStorage, export CSV
 */
@@ -31,10 +31,9 @@
   let startPos = null;
   let lastPos = null;
   let cumulative = 0;
-  let target = 201;
   let startTime = null;
   let peakSpeed = 0;
-  let samples = []; // {t, speed}
+  let samples = []; 
   let history = JSON.parse(localStorage.getItem('rb_history') || '[]');
 
   function hav(a,b){
@@ -42,7 +41,7 @@
     const rad = Math.PI/180;
     const dLat = (b.latitude-a.latitude)*rad;
     const dLon = (b.longitude-a.longitude)*rad;
-    const la = a.latitude*rad, lb = b.latitude*rad;
+    const la = a.latitude*rad, lb = b.longitude*rad;
     const s1 = Math.sin(dLat/2), s2 = Math.sin(dLon/2);
     const h = s1*s1 + Math.cos(la)*Math.cos(lb)*s2*s2;
     return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
@@ -50,20 +49,13 @@
 
   function setStatus(s){ statusBar.textContent = 'Status: ' + s; }
 
-  function formatDate(ts){
-    return new Date(ts).toLocaleString();
-  }
-
   function updateUI(){
     if(!running){ timeEl.textContent = '0.000 s'; avgEl.textContent='—'; }
-    // speed display updated in onPos
-    // draw graph
     drawGraph();
     renderHistory();
   }
 
   function drawGraph(){
-    // simple scrolling speed graph
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.strokeStyle = '#64d2ff';
     ctx.lineWidth = 2;
@@ -79,7 +71,7 @@
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     });
     ctx.stroke();
-    // grid lines
+
     ctx.strokeStyle='rgba(255,255,255,0.03)';
     ctx.lineWidth=1;
     for(let g=1;g<=3;g++){
@@ -93,24 +85,22 @@
   function onPos(p){
     const c = p.coords;
     accEl.textContent = (c.accuracy||0).toFixed(1)+' m';
-    const cur = { latitude: c.latitude, longitude: c.longitude, speed: (c.speed||0)*3.6 }; // km/h
-    // push sample
+    const cur = { latitude: c.latitude, longitude: c.longitude, speed: (c.speed||0)*3.6 };
+
     samples.push({t:performance.now(), speed: cur.speed});
     if(samples.length>1000) samples.shift();
 
-    // update display
     speedDisplay.textContent = cur.speed.toFixed(1);
     if(cur.speed > peakSpeed) peakSpeed = cur.speed;
     peakEl.textContent = (peakSpeed>0?peakSpeed.toFixed(1):'—') + ' km/h';
 
-    // armed logic
     if(!armed) return;
 
     if(!startPos){
       if(c.accuracy <= 50){
         startPos = cur;
         lastPos = cur;
-        setStatus('armed — waiting for movement');
+        setStatus('armed — waiting for throttle');
       } else {
         setStatus('arming — waiting for better GPS accuracy');
         return;
@@ -120,41 +110,48 @@
     const d = hav(lastPos, cur);
     lastPos = cur;
 
+    // ========= FIX: START ONLY WHEN SPEED >= X km/h =========
+    const startThreshold = 1; // <--- bisa kamu ubah ke 5 / 8 / 10 sesuai kebutuhan
+
     if(!running){
-      // detect start: speed threshold or movement
-      const moved = hav(startPos, cur);
-      if((cur.speed>10) || (moved>1.5)){ // start threshold 10 km/h (adjustable)
+      if(cur.speed >= startThreshold){
         running = true;
         startTime = performance.now();
         cumulative = 0;
         peakSpeed = cur.speed;
         samples = [{t:performance.now(), speed:cur.speed}];
         setStatus('running');
+      } else {
+        setStatus('armed — waiting for throttle');
       }
-    } else {
-      cumulative += d;
-      distanceEl.textContent = cumulative.toFixed(2) + ' m';
-      const elapsed = (performance.now() - startTime)/1000;
-      timeEl.textContent = elapsed.toFixed(3) + ' s';
-      const avg = (cumulative/elapsed) * 3.6; // km/h
-      avgEl.textContent = avg.toFixed(1) + ' km/h';
+      return;
+    }
 
-      // finish logic based on mode
-      const mode = modeSelect.value;
-      if(mode === '201' || mode === '402'){
-        const tgt = (mode==='201'?201:402);
-        if(cumulative >= tgt) finishRun(elapsed, cumulative);
-      } else if(mode === '0-100'){
-        if(peakSpeed >= 100) finishRun(elapsed, cumulative);
-      } else if(mode === '0-140'){
-        if(peakSpeed >= 140) finishRun(elapsed, cumulative);
-      } else if(mode === '60-100'){
-        // rolling: detect when passing 60 then reaching 100
-        // simple approach: check last N samples for crossing
-        const last = samples.slice(-8).map(s=>s.speed);
-        if(last.some(s=>s>=60) && last.some(s=>s>=100)) finishRun(elapsed, cumulative);
+    // running
+    cumulative += d;
+    distanceEl.textContent = cumulative.toFixed(2) + ' m';
+
+    const elapsed = (performance.now() - startTime)/1000;
+    timeEl.textContent = elapsed.toFixed(3) + ' s';
+
+    const avg = (cumulative/elapsed) * 3.6;
+    avgEl.textContent = avg.toFixed(1) + ' km/h';
+
+    const mode = modeSelect.value;
+
+    if(mode==='201' && cumulative >= 201) finishRun(elapsed, cumulative);
+    if(mode==='402' && cumulative >= 402) finishRun(elapsed, cumulative);
+
+    if(mode==='0-100' && peakSpeed >= 100) finishRun(elapsed, cumulative);
+    if(mode==='0-140' && peakSpeed >= 140) finishRun(elapsed, cumulative);
+
+    if(mode==='60-100'){
+      const lastSpeeds = samples.slice(-8).map(s=>s.speed);
+      if(lastSpeeds.some(s=>s>=60) && lastSpeeds.some(s=>s>=100)){
+        finishRun(elapsed, cumulative);
       }
     }
+
     drawGraph();
   }
 
@@ -162,25 +159,43 @@
     running = false;
     armed = false;
     setStatus('finish — time: ' + elapsed.toFixed(3) + ' s');
-    // save last run temp
-    window._lastRun = {mode: modeSelect.value, time: elapsed, distance: dist, peak: peakSpeed, date: Date.now()};
-    // stop watch
+    window._lastRun = {
+      mode: modeSelect.value,
+      time: elapsed,
+      distance: dist,
+      peak: peakSpeed,
+      date: Date.now()
+    };
   }
 
   function arm(){
-    if(armed){ // disarm
+    if(armed){
       armed=false; running=false; startPos=null; lastPos=null; cumulative=0; samples=[];
       setStatus('idle');
       if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
       return;
     }
-    if(!('geolocation' in navigator)){ alert('Geolocation tidak tersedia'); return; }
-    armed = true; running=false; startPos=null; lastPos=null; cumulative=0; peakSpeed=0; samples=[];
+
+    if(!('geolocation' in navigator)){
+      alert('Geolocation tidak tersedia');
+      return;
+    }
+
+    armed = true;
+    running=false;
+    startPos=null; lastPos=null;
+    cumulative=0; peakSpeed=0; samples=[];
     setStatus('arming — requesting GPS');
+
     if(watchId!==null) navigator.geolocation.clearWatch(watchId);
-    watchId = navigator.geolocation.watchPosition(onPos, e => {
+
+    watchId = navigator.geolocation.watchPosition(onPos, e=>{
       setStatus('GPS error: ' + e.message);
-    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+    },{
+      enableHighAccuracy:true,
+      maximumAge:0,
+      timeout:10000
+    });
   }
 
   function stop(){
@@ -191,8 +206,12 @@
   function reset(){
     if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
     armed=false; running=false; startPos=null; lastPos=null; cumulative=0; peakSpeed=0; samples=[];
-    distanceEl.textContent='0.00 m'; timeEl.textContent='0.000 s'; speedDisplay.textContent='0.0';
-    peakEl.textContent='— km/h'; avgEl.textContent='—'; accEl.textContent='— m';
+    distanceEl.textContent='0.00 m';
+    timeEl.textContent='0.000 s';
+    speedDisplay.textContent='0.0';
+    peakEl.textContent='— km/h';
+    avgEl.textContent='—';
+    accEl.textContent='— m';
     setStatus('idle');
   }
 
@@ -201,7 +220,7 @@
     history.unshift(window._lastRun);
     localStorage.setItem('rb_history', JSON.stringify(history));
     renderHistory();
-    alert('Run disimpan ke history.');
+    alert('Run disimpan.');
   }
 
   function exportCSV(){
@@ -214,35 +233,37 @@
     const blob = new Blob([csv], {type:'text/csv'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'racebox_history.csv'; a.click();
+    a.href = url; 
+    a.download = 'racebox_history.csv';
+    a.click();
     URL.revokeObjectURL(url);
   }
 
   function renderHistory(){
-    historyTableBody.innerHTML = '';
+    historyTableBody.innerHTML='';
     history.forEach((h,i)=>{
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${i+1}</td><td>${h.mode}</td><td>${h.time.toFixed(3)}</td><td>${h.distance.toFixed(2)}</td><td>${h.peak.toFixed(1)}</td><td>${new Date(h.date).toLocaleString()}</td>`;
+      tr.innerHTML =
+        `<td>${i+1}</td>
+         <td>${h.mode}</td>
+         <td>${h.time.toFixed(3)}</td>
+         <td>${h.distance.toFixed(2)}</td>
+         <td>${h.peak.toFixed(1)}</td>
+         <td>${new Date(h.date).toLocaleString()}</td>`;
       historyTableBody.appendChild(tr);
     });
   }
 
-  // buttons
   armBtn.addEventListener('click', arm);
   stopBtn.addEventListener('click', stop);
   resetBtn.addEventListener('click', reset);
   saveBtn.addEventListener('click', saveRun);
   exportBtn.addEventListener('click', exportCSV);
 
-  // initialize
   renderHistory();
   setStatus('idle');
 
-  // PWA install hint (minimal)
-  if ('serviceWorker' in navigator){
+  if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   }
-
-  // expose for debug
-  window.rb = {arm, stop, reset, history};
 })();
