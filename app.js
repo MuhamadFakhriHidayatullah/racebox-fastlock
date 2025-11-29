@@ -1,10 +1,10 @@
-/* RaceBox Web - app.js (Fixed Auto-Start by Speed Only)
-   Features:
-   - Modes (201,402,0-100,0-140,60-100)
-   - Auto-arm & auto-start logic (Start ONLY when speed >= 3 km/h)
-   - Speed graph (canvas)
-   - History saved to localStorage, export CSV
+/* RaceBox Web - app.js (Final Fix)
+   - Start ONLY when real movement (speed >= 1 km/h)
+   - Ghost-speed filter for iPhone (0.5–1.4 km/h ignored)
+   - Correct ARM logic (no auto start)
+   - Modes 201,402,0–100,0–140,60–100
 */
+
 (() => {
   // DOM
   const armBtn = document.getElementById('armBtn');
@@ -24,7 +24,7 @@
   const canvas = document.getElementById('speedGraph');
   const ctx = canvas.getContext('2d');
 
-  // State
+  // state
   let watchId = null;
   let armed = false;
   let running = false;
@@ -33,66 +33,63 @@
   let cumulative = 0;
   let startTime = null;
   let peakSpeed = 0;
-  let samples = []; 
+  let samples = [];
   let history = JSON.parse(localStorage.getItem('rb_history') || '[]');
 
   function hav(a,b){
     const R = 6371000;
     const rad = Math.PI/180;
-    const dLat = (b.latitude-a.latitude)*rad;
-    const dLon = (b.longitude-a.longitude)*rad;
-    const la = a.latitude*rad, lb = b.longitude*rad;
-    const s1 = Math.sin(dLat/2), s2 = Math.sin(dLon/2);
-    const h = s1*s1 + Math.cos(la)*Math.cos(lb)*s2*s2;
+    const dLat=(b.latitude-a.latitude)*rad;
+    const dLon=(b.longitude-a.longitude)*rad;
+    const la=a.latitude*rad, lb=b.latitude*rad;
+    const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);
+    const h=s1*s1 + Math.cos(la)*Math.cos(lb)*s2*s2;
     return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
   }
 
-  function setStatus(s){ statusBar.textContent = 'Status: ' + s; }
-
-  function updateUI(){
-    if(!running){ timeEl.textContent = '0.000 s'; avgEl.textContent='—'; }
-    drawGraph();
-    renderHistory();
-  }
+  function setStatus(s){ statusBar.textContent = "Status: " + s; }
 
   function drawGraph(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.strokeStyle = '#64d2ff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
     const maxPoints = 120;
     const pts = samples.slice(-maxPoints);
-    const w = canvas.width, h = canvas.height;
     if(pts.length === 0) return;
-    const maxSpeed = Math.max(100, ...pts.map(p=>p.speed||0));
+    const w=canvas.width, h=canvas.height;
+    const maxSpeed = Math.max(100, ...pts.map(p=>p.speed));
+
+    ctx.strokeStyle="#64d2ff";
+    ctx.lineWidth=2;
+    ctx.beginPath();
     pts.forEach((p,i)=>{
       const x = (i/(maxPoints-1))*w;
-      const y = h - ((p.speed||0)/maxSpeed)*h;
+      const y = h - (p.speed/maxSpeed)*h;
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     });
     ctx.stroke();
-
-    ctx.strokeStyle='rgba(255,255,255,0.03)';
-    ctx.lineWidth=1;
-    for(let g=1;g<=3;g++){
-      ctx.beginPath();
-      ctx.moveTo(0,h*(g/4));
-      ctx.lineTo(w,h*(g/4));
-      ctx.stroke();
-    }
   }
 
   function onPos(p){
     const c = p.coords;
-    accEl.textContent = (c.accuracy||0).toFixed(1)+' m';
-    const cur = { latitude: c.latitude, longitude: c.longitude, speed: (c.speed||0)*3.6 };
+    accEl.textContent = (c.accuracy||0).toFixed(1)+" m";
 
-    samples.push({t:performance.now(), speed: cur.speed});
+    // RAW speed (m/s → km/h)
+    let speed = (c.speed || 0) * 3.6;
+
+    // ==== FIX 1: Ghost speed filter ====
+    if (speed < 1.5) speed = 0;
+
+    const cur = {
+      latitude:c.latitude,
+      longitude:c.longitude,
+      speed:speed
+    };
+
+    samples.push({t:performance.now(), speed:cur.speed});
     if(samples.length>1000) samples.shift();
 
     speedDisplay.textContent = cur.speed.toFixed(1);
     if(cur.speed > peakSpeed) peakSpeed = cur.speed;
-    peakEl.textContent = (peakSpeed>0?peakSpeed.toFixed(1):'—') + ' km/h';
+    peakEl.textContent = peakSpeed.toFixed(1) + " km/h";
 
     if(!armed) return;
 
@@ -100,18 +97,18 @@
       if(c.accuracy <= 50){
         startPos = cur;
         lastPos = cur;
-        setStatus('armed — waiting for throttle');
+        setStatus("armed — waiting for throttle");
       } else {
-        setStatus('arming — waiting for better GPS accuracy');
-        return;
+        setStatus("arming — waiting for better GPS accuracy");
       }
+      return;
     }
 
     const d = hav(lastPos, cur);
     lastPos = cur;
 
-    // ========= FIX: START ONLY WHEN SPEED >= X km/h =========
-    const startThreshold = 1; // <--- bisa kamu ubah ke 5 / 8 / 10 sesuai kebutuhan
+    // ==== FIX 2: Start ONLY when speed >= 1 km/h ====
+    const startThreshold = 1;
 
     if(!running){
       if(cur.speed >= startThreshold){
@@ -120,77 +117,76 @@
         cumulative = 0;
         peakSpeed = cur.speed;
         samples = [{t:performance.now(), speed:cur.speed}];
-        setStatus('running');
+        setStatus("running");
       } else {
-        setStatus('armed — waiting for throttle');
+        setStatus("armed — waiting for throttle");
       }
       return;
     }
 
     // running
     cumulative += d;
-    distanceEl.textContent = cumulative.toFixed(2) + ' m';
-
+    distanceEl.textContent = cumulative.toFixed(2)+" m";
     const elapsed = (performance.now() - startTime)/1000;
-    timeEl.textContent = elapsed.toFixed(3) + ' s';
-
-    const avg = (cumulative/elapsed) * 3.6;
-    avgEl.textContent = avg.toFixed(1) + ' km/h';
+    timeEl.textContent = elapsed.toFixed(3)+" s";
+    const avg = (cumulative/elapsed)*3.6;
+    avgEl.textContent = avg.toFixed(1)+" km/h";
 
     const mode = modeSelect.value;
 
-    if(mode==='201' && cumulative >= 201) finishRun(elapsed, cumulative);
-    if(mode==='402' && cumulative >= 402) finishRun(elapsed, cumulative);
+    if(mode==="201" && cumulative>=201) finishRun(elapsed,cumulative);
+    if(mode==="402" && cumulative>=402) finishRun(elapsed,cumulative);
+    if(mode==="0-100" && peakSpeed>=100) finishRun(elapsed,cumulative);
+    if(mode==="0-140" && peakSpeed>=140) finishRun(elapsed,cumulative);
 
-    if(mode==='0-100' && peakSpeed >= 100) finishRun(elapsed, cumulative);
-    if(mode==='0-140' && peakSpeed >= 140) finishRun(elapsed, cumulative);
-
-    if(mode==='60-100'){
+    if(mode==="60-100"){
       const lastSpeeds = samples.slice(-8).map(s=>s.speed);
       if(lastSpeeds.some(s=>s>=60) && lastSpeeds.some(s=>s>=100)){
-        finishRun(elapsed, cumulative);
+        finishRun(elapsed,cumulative);
       }
     }
 
     drawGraph();
   }
 
-  function finishRun(elapsed, dist){
-    running = false;
-    armed = false;
-    setStatus('finish — time: ' + elapsed.toFixed(3) + ' s');
-    window._lastRun = {
-      mode: modeSelect.value,
-      time: elapsed,
-      distance: dist,
-      peak: peakSpeed,
-      date: Date.now()
+  function finishRun(elapsed,dist){
+    running=false;
+    armed=false;
+    setStatus("finish — time: "+elapsed.toFixed(3)+" s");
+    window._lastRun={
+      mode:modeSelect.value,
+      time:elapsed,
+      distance:dist,
+      peak:peakSpeed,
+      date:Date.now()
     };
   }
 
   function arm(){
     if(armed){
       armed=false; running=false; startPos=null; lastPos=null; cumulative=0; samples=[];
-      setStatus('idle');
+      setStatus("idle");
       if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
       return;
     }
 
     if(!('geolocation' in navigator)){
-      alert('Geolocation tidak tersedia');
+      alert("Geolocation tidak tersedia");
       return;
     }
 
-    armed = true;
-    running=false;
+    // ==== FIX 3: Hard reset running ====
+    running = false;
+
+    armed=true;
     startPos=null; lastPos=null;
     cumulative=0; peakSpeed=0; samples=[];
-    setStatus('arming — requesting GPS');
+    setStatus("arming — requesting GPS");
 
     if(watchId!==null) navigator.geolocation.clearWatch(watchId);
 
     watchId = navigator.geolocation.watchPosition(onPos, e=>{
-      setStatus('GPS error: ' + e.message);
+      setStatus("GPS error: "+e.message);
     },{
       enableHighAccuracy:true,
       maximumAge:0,
@@ -200,50 +196,37 @@
 
   function stop(){
     if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-    running=false; armed=false; setStatus('stopped');
+    running=false; armed=false;
+    setStatus("stopped");
   }
 
   function reset(){
     if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-    armed=false; running=false; startPos=null; lastPos=null; cumulative=0; peakSpeed=0; samples=[];
-    distanceEl.textContent='0.00 m';
-    timeEl.textContent='0.000 s';
-    speedDisplay.textContent='0.0';
-    peakEl.textContent='— km/h';
-    avgEl.textContent='—';
-    accEl.textContent='— m';
-    setStatus('idle');
+    armed=false; running=false;
+    startPos=null; lastPos=null;
+    cumulative=0; peakSpeed=0; samples=[];
+    distanceEl.textContent="0.00 m";
+    timeEl.textContent="0.000 s";
+    speedDisplay.textContent="0.0";
+    peakEl.textContent="— km/h";
+    avgEl.textContent="—";
+    accEl.textContent="— m";
+    setStatus("idle");
   }
 
   function saveRun(){
-    if(!window._lastRun){ alert('Tidak ada run untuk disimpan.'); return; }
+    if(!window._lastRun){ alert("Tidak ada run"); return; }
     history.unshift(window._lastRun);
-    localStorage.setItem('rb_history', JSON.stringify(history));
+    localStorage.setItem("rb_history",JSON.stringify(history));
     renderHistory();
-    alert('Run disimpan.');
-  }
-
-  function exportCSV(){
-    if(history.length===0){ alert('History kosong'); return; }
-    const rows = [['mode','time_s','distance_m','peak_kmh','date']];
-    history.forEach(r=>{
-      rows.push([r.mode, r.time.toFixed(3), r.distance.toFixed(2), r.peak.toFixed(1), new Date(r.date).toISOString()]);
-    });
-    const csv = rows.map(r=>r.join(',')).join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; 
-    a.download = 'racebox_history.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    alert("Run disimpan.");
   }
 
   function renderHistory(){
-    historyTableBody.innerHTML='';
+    historyTableBody.innerHTML="";
     history.forEach((h,i)=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML =
+      const tr=document.createElement("tr");
+      tr.innerHTML=
         `<td>${i+1}</td>
          <td>${h.mode}</td>
          <td>${h.time.toFixed(3)}</td>
@@ -254,16 +237,36 @@
     });
   }
 
-  armBtn.addEventListener('click', arm);
-  stopBtn.addEventListener('click', stop);
-  resetBtn.addEventListener('click', reset);
-  saveBtn.addEventListener('click', saveRun);
-  exportBtn.addEventListener('click', exportCSV);
+  function exportCSV(){
+    if(history.length===0){ alert("History kosong"); return; }
+    const rows=[["mode","time_s","distance_m","peak_kmh","date"]];
+    history.forEach(r=>{
+      rows.push([
+        r.mode,
+        r.time.toFixed(3),
+        r.distance.toFixed(2),
+        r.peak.toFixed(1),
+        new Date(r.date).toISOString()
+      ]);
+    });
+    const csv=rows.map(r=>r.join(",")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download="racebox_history.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  armBtn.addEventListener("click",arm);
+  stopBtn.addEventListener("click",stop);
+  resetBtn.addEventListener("click",reset);
+  saveBtn.addEventListener("click",saveRun);
+  exportBtn.addEventListener("click",exportCSV);
 
   renderHistory();
-  setStatus('idle');
+  setStatus("idle");
 
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
   }
 })();
