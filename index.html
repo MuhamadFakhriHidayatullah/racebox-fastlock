@@ -1,67 +1,540 @@
 <!doctype html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>RaceBox Web — GPS Drag Timer (App Style)</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.webmanifest">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RaceBox PRO — Drag Timer</title>
+<style>
+/* RaceBox PRO - Dark Glass + Neon Red */
+:root{
+  --bg:#070812;
+  --card:#0f1720;
+  --glass: rgba(255,255,255,0.03);
+  --muted: #98a4b3;
+  --neon: #ff3b30;
+  --neon-2: #ff6b55;
+  --accent:#64d2ff;
+  --success:#28c76f;
+  --radius:12px;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,#04050a 0%,#081026 100%);color:#e6eef6}
+.container{max-width:980px;margin:14px auto;padding:14px;border-radius:14px}
+
+/* Top header */
+.header{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 6px 24px rgba(0,0,0,0.6)}
+.brand{font-weight:800;color:var(--neon);font-size:18px;letter-spacing:0.6px}
+.subtitle{color:var(--muted);font-size:13px;margin-left:auto}
+
+/* Controls */
+.controls{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
+.btn{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#dfeafe;cursor:pointer;font-weight:700;letter-spacing:0.3px}
+.btn:hover{transform:translateY(-1px)}
+.btn.arm{background:linear-gradient(90deg,var(--neon),var(--neon-2));box-shadow:0 8px 30px rgba(255,59,48,0.09),0 0 18px rgba(255,59,48,0.06);border:none;color:#fff}
+.btn.stop{background:linear-gradient(90deg,#444,#222);border:1px solid rgba(255,255,255,0.03)}
+.btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.04)}
+
+/* Status bar */
+.status{display:flex;gap:18px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015));border:1px solid rgba(255,255,255,0.02)}
+.block{display:flex;flex-direction:column}
+.label{font-size:12px;color:var(--muted)}
+.big{font-size:44px;font-weight:800;color:#ffffff;letter-spacing:1px}
+.small{font-size:14px;color:#cfe6ff}
+
+/* Layout */
+.main{display:grid;grid-template-columns:1fr 360px;gap:14px;margin-top:12px}
+.card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015));padding:12px;border-radius:var(--radius);border:1px solid rgba(255,255,255,0.02)}
+.left{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px}
+.right{display:flex;flex-direction:column;gap:12px;padding:12px}
+
+/* Small info row */
+.info-row{display:flex;gap:12px;width:100%;justify-content:space-between}
+.info-item{text-align:center}
+.info-item .val{font-weight:800;font-size:18px;color:#fff}
+.info-item .muted{font-size:12px;color:var(--muted)}
+
+/* Milestones list */
+.milestones{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.milestone{background:var(--card);padding:10px;border-radius:8px;text-align:center;border:1px solid rgba(255,255,255,0.02)}
+.milestone .dist{font-weight:800;font-size:16px;color:var(--accent)}
+.milestone .time{margin-top:6px;font-weight:700;font-size:16px}
+.milestone .speed{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* Graph */
+.graph{width:100%;height:120px;border-radius:8px;background:linear-gradient(180deg,#071226,#04101a);display:flex;align-items:center;justify-content:center;color:#7fbfe8;border:1px solid rgba(255,255,255,0.02)}
+
+/* History table */
+.history{max-height:280px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.02);text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px}
+
+/* Footer small */
+.note{font-size:13px;color:var(--muted);margin-top:8px;text-align:center}
+
+/* Responsive */
+@media(max-width:880px){
+  .main{grid-template-columns:1fr}
+  .big{font-size:36px}
+  .brand{font-size:16px}
+  .right{order:2}
+}
+
+/* Tiny helpers */
+.kv{display:flex;gap:8px;align-items:center;justify-content:center}
+.badge{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);font-weight:700}
+</style>
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div class="brand">RaceBox Web</div>
-      <div class="modes">
-        <select id="modeSelect" title="Pilih mode">
-          <option value="201">201 m (1/8 mile)</option>
-          <option value="402">402 m (1/4 mile)</option>
-          <option value="0-100">0→100 km/h</option>
-          <option value="0-140">0→140 km/h</option>
-          <option value="60-100">60→100 km/h (rolling)</option>
-        </select>
-      </div>
-    </header>
+  <div class="container">
+    <div class="header">
+      <div class="brand">RaceBox PRO</div>
+      <div class="subtitle">Drag Timer — 20 / 100 / 201 / 402</div>
+    </div>
 
-    <section class="display">
-      <div class="left-panel">
-        <div class="big-speed" id="speedDisplay">0.0</div>
-        <div class="unit">km/h</div>
-        <div class="small-row">
-          <div><strong>Distance</strong><div id="distance">0.00 m</div></div>
-          <div><strong>Time</strong><div id="time">0.000 s</div></div>
-        </div>
-      </div>
-      <div class="right-panel">
-        <div class="meters">
-          <div class="meter"><small>Peak</small><div id="peak">— km/h</div></div>
-          <div class="meter"><small>Avg</small><div id="avg">— km/h</div></div>
-          <div class="meter"><small>GPS</small><div id="accuracy">— m</div></div>
-        </div>
-        <canvas id="speedGraph" width="320" height="180"></canvas>
-      </div>
-    </section>
-
-    <section class="controls">
-      <button id="armBtn" class="btn primary">ARM</button>
-      <button id="stopBtn" class="btn">STOP</button>
-      <button id="resetBtn" class="btn">RESET</button>
+    <div class="controls">
+      <button id="armBtn" class="btn arm">ARM</button>
+      <button id="stopBtn" class="btn stop">STOP</button>
+      <button id="resetBtn" class="btn ghost">RESET</button>
       <button id="saveBtn" class="btn">SAVE RUN</button>
       <button id="exportBtn" class="btn">EXPORT CSV</button>
-    </section>
 
-    <section class="statusbar" id="status">Status: idle</section>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px">
+          <input id="rollout" type="checkbox" /> 1 ft rollout
+        </label>
+      </div>
+    </div>
 
-    <section class="history">
-      <h3>History</h3>
-      <table id="historyTable">
-        <thead><tr><th>#</th><th>Mode</th><th>Time (s)</th><th>Distance (m)</th><th>Peak (km/h)</th><th>Date</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
+    <div class="status card">
+      <div style="display:flex;gap:20px;align-items:center;width:100%;flex-wrap:wrap">
+        <div class="block">
+          <div class="label">Status</div>
+          <div id="status" class="big">idle</div>
+        </div>
 
-    <footer class="footer">Gunakan HP, izinkan lokasi. Ini versi web app (PWA-ready).</footer>
-  </main>
+        <div class="block">
+          <div class="label">Speed</div>
+          <div id="speedDisplay" class="big">0.0 km/h</div>
+        </div>
 
-  <script src="app.js"></script>
+        <div class="block">
+          <div class="label">Distance</div>
+          <div id="distance" class="big">0.00 m</div>
+        </div>
+
+        <div class="block">
+          <div class="label">Time</div>
+          <div id="time" class="big">0.000 s</div>
+        </div>
+
+        <div class="block" style="margin-left:auto">
+          <div class="label">Accuracy</div>
+          <div id="accuracy" class="small">— m</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- LEFT -->
+      <div class="card left">
+        <div style="width:100%;display:flex;gap:12px;align-items:center;justify-content:space-between">
+          <div class="kv">
+            <div class="badge">Peak</div>
+            <div id="peak" class="muted" style="font-weight:800;color:#fff">— km/h</div>
+          </div>
+          <div class="kv">
+            <div class="badge">Avg</div>
+            <div id="avg" class="muted" style="font-weight:800;color:#fff">—</div>
+          </div>
+          <div class="kv">
+            <div class="badge">Mode</div>
+            <div style="color:var(--muted);font-weight:700">
+              <select id="modeSelect" style="background:transparent;border:none;color:#dfeafe;font-weight:700">
+                <option value="402">402 m</option>
+                <option value="201">201 m</option>
+                <option value="0-100">0-100</option>
+                <option value="0-140">0-140</option>
+                <option value="60-100">60-100</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:100%;margin-top:12px" class="graph">
+          <canvas id="speedGraph" width="700" height="120" style="width:100%;height:100%;border-radius:8px"></canvas>
+        </div>
+
+        <div style="width:100%;margin-top:12px" class="info-row">
+          <div class="info-item">
+            <div class="val" id="spk">0.0</div>
+            <div class="muted">Current km/h</div>
+          </div>
+          <div class="info-item">
+            <div class="val" id="distk">0.00</div>
+            <div class="muted">Meter</div>
+          </div>
+          <div class="info-item">
+            <div class="val" id="timek">0.000</div>
+            <div class="muted">Seconds</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="card right">
+        <h3 style="margin:0 0 8px">Run Results</h3>
+
+        <div class="milestones" id="runResults">
+          <!-- milestones will be injected here -->
+          <div style="grid-column:1/3;color:var(--muted);text-align:center">No run yet. ARM then gas to start.</div>
+        </div>
+
+        <div style="margin-top:12px">
+          <h4 style="margin:0 0 8px">History</h4>
+          <div class="history">
+            <table id="historyTable">
+              <thead><tr><th>#</th><th>Mode</th><th>201s</th><th>402s</th><th>Peak</th><th>Date</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <h4 style="margin:0 0 8px">Raw (debug)</h4>
+          <pre id="rawRun">—</pre>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="note">Tip: Gunakan iPhone atau ponsel GNSS multi-band & pasang di bracket untuk hasil terbaik.</div>
+  </div>
+
+<script>
+/* RaceBox PRO - script
+   - start only when gas (>=3 km/h stable ~400ms)
+   - milestones 20/100/201/402
+   - rollout support
+   - graph + history
+*/
+
+(function(){
+  // DOM
+  const armBtn = document.getElementById('armBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const rolloutChk = document.getElementById('rollout');
+  const statusBar = document.getElementById('status');
+  const speedDisplay = document.getElementById('speedDisplay');
+  const distanceEl = document.getElementById('distance');
+  const timeEl = document.getElementById('time');
+  const accEl = document.getElementById('accuracy');
+  const peakEl = document.getElementById('peak');
+  const avgEl = document.getElementById('avg');
+  const runResults = document.getElementById('runResults');
+  const rawRun = document.getElementById('rawRun');
+  const historyTableBody = document.querySelector('#historyTable tbody');
+  const speedGraph = document.getElementById('speedGraph');
+  const spk = document.getElementById('spk');
+  const distk = document.getElementById('distk');
+  const timek = document.getElementById('timek');
+  const modeSelect = document.getElementById('modeSelect');
+
+  const ctx = speedGraph.getContext('2d');
+
+  // State
+  let watchId = null;
+  let armed = false;
+  let running = false;
+  let startPos = null;
+  let lastPos = null;
+  let cumulative = 0;
+  let startTime = null;
+  let peakSpeed = 0;
+  let samples = []; // {t, speed}
+  let history = JSON.parse(localStorage.getItem('rb_history') || '[]');
+
+  const MILESTONES = [20,100,201,402];
+  let marks = {}; // {20:{time,speed}, ...}
+
+  function setStatus(s){ statusBar.textContent = s; }
+  function resetMarks(){ marks={}; MILESTONES.forEach(m=>marks[m]=null); }
+  function resetUI(){
+    distanceEl.textContent="0.00 m";
+    timeEl.textContent="0.000 s";
+    speedDisplay.textContent="0.0 km/h";
+    peakEl.textContent="— km/h";
+    avgEl.textContent="—";
+    accEl.textContent="— m";
+    spk.textContent="0.0";
+    distk.textContent="0.00";
+    timek.textContent="0.000";
+    runResults.innerHTML = '<div style="grid-column:1/3;color:var(--muted);text-align:center">No run yet. ARM then gas to start.</div>';
+    rawRun.textContent = '—';
+    clearGraph();
+  }
+  resetMarks();
+
+  // haversine
+  function hav(a,b){
+    const R=6371000; const r=Math.PI/180;
+    const dLat=(b.latitude-a.latitude)*r;
+    const dLon=(b.longitude-a.longitude)*r;
+    const la=a.latitude*r, lb=b.latitude*r;
+    const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);
+    const h=s1*s1 + Math.cos(la)*Math.cos(lb)*s2*s2;
+    return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+  }
+
+  // GRAPH helpers
+  function clearGraph(){ ctx.clearRect(0,0,speedGraph.width,speedGraph.height); ctx.fillStyle='#071226'; ctx.fillRect(0,0,speedGraph.width,speedGraph.height); }
+  function drawGraph(){
+    clearGraph();
+    const pts = samples.slice(-140);
+    if(pts.length===0) return;
+    const w=speedGraph.width, h=speedGraph.height;
+    const maxSpeed = Math.max(100, ...pts.map(p=>p.speed));
+    ctx.strokeStyle = '#64d2ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    pts.forEach((p,i)=>{
+      const x = (i/(pts.length-1))*w;
+      const y = h - (p.speed/maxSpeed)*h;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // draw peak line
+    ctx.strokeStyle='rgba(255,59,48,0.25)'; ctx.setLineDash([4,4]);
+    const pkY = h - (peakSpeed/maxSpeed)*h;
+    ctx.beginPath(); ctx.moveTo(0,pkY); ctx.lineTo(w,pkY); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // update run results UI
+  function renderRunResults(){
+    // build milestone blocks
+    runResults.innerHTML = '';
+    for(let m of MILESTONES){
+      const mk = marks[m];
+      const container = document.createElement('div'); container.className='milestone';
+      const distDiv = document.createElement('div'); distDiv.className='dist'; distDiv.textContent = m + ' m';
+      const timeDiv = document.createElement('div'); timeDiv.className='time'; timeDiv.textContent = mk && mk.time ? mk.time.toFixed(2)+' s' : '—';
+      const spDiv = document.createElement('div'); spDiv.className='speed'; spDiv.textContent = mk && mk.speed ? mk.speed.toFixed(2)+' km/h' : '—';
+      container.appendChild(distDiv); container.appendChild(timeDiv); container.appendChild(spDiv);
+      runResults.appendChild(container);
+    }
+    // peak row
+    const peakRow = document.createElement('div'); peakRow.style.gridColumn='1/3'; peakRow.style.textAlign='center'; peakRow.style.marginTop='8px';
+    peakRow.innerHTML = `<div style="font-weight:700">Peak: ${peakSpeed?peakSpeed.toFixed(2)+' km/h':'—'}</div>`;
+    runResults.appendChild(peakRow);
+  }
+
+  // render history table
+  function renderHistory(){
+    historyTableBody.innerHTML='';
+    history.forEach((h,i)=>{
+      const tr = document.createElement('tr');
+      const t201 = h.d201 ? h.d201.toFixed(3) : '';
+      const t402 = h.d402 ? h.d402.toFixed(3) : '';
+      tr.innerHTML = `<td>${i+1}</td><td>${h.mode||''}</td><td>${t201}</td><td>${t402}</td><td>${h.peak?h.peak.toFixed(1):''}</td><td>${new Date(h.date).toLocaleString()}</td>`;
+      historyTableBody.appendChild(tr);
+    });
+  }
+
+  // finish run
+  function finishRun(){
+    running=false; armed=false;
+    setStatus('finish — run complete');
+    // build last run
+    const last = {
+      mode: modeSelect ? modeSelect.value : '',
+      date: Date.now(),
+      peak: peakSpeed,
+      marks: JSON.parse(JSON.stringify(marks)),
+      d20: marks[20] ? marks[20].time : null,
+      d100: marks[100] ? marks[100].time : null,
+      d201: marks[201] ? marks[201].time : null,
+      d402: marks[402] ? marks[402].time : null,
+      s20: marks[20] ? marks[20].speed : null,
+      s100: marks[100] ? marks[100].speed : null,
+      s201: marks[201] ? marks[201].speed : null,
+      s402: marks[402] ? marks[402].speed : null,
+      distance: cumulative
+    };
+    window._lastRun = last;
+    rawRun.textContent = JSON.stringify(last, null, 2);
+    renderRunResults();
+    renderHistory();
+    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+  }
+
+  // position handler
+  function onPos(p){
+    const c = p.coords;
+    accEl.textContent = (c.accuracy||0).toFixed(1)+' m';
+
+    let speed = (c.speed || 0) * 3.6; // km/h
+    if(speed < 2.5) speed = 0; // ghost filter
+
+    const cur = { latitude: c.latitude, longitude: c.longitude, speed: speed };
+    const now = performance.now();
+    samples.push({t: now, speed: speed});
+    samples = samples.filter(s => now - s.t <= 400);
+
+    speedDisplay.textContent = speed.toFixed(1) + ' km/h';
+    spk.textContent = speed.toFixed(1);
+    if(speed > peakSpeed) peakSpeed = speed;
+    peakEl.textContent = peakSpeed ? peakSpeed.toFixed(1)+' km/h' : '—';
+
+    // draw graph data
+    drawGraph();
+
+    if(!armed) return;
+
+    // initial GPS lock
+    if(!startPos){
+      if(c.accuracy <= 50){
+        startPos = cur; lastPos = cur; setStatus('armed — waiting throttle'); return;
+      } else { setStatus('arming — waiting GPS accuracy'); return; }
+    }
+
+    // distance
+    const d = hav(lastPos, cur);
+    lastPos = cur;
+
+    // start logic: stable >=3 km/h
+    const startThreshold = 3;
+    const ready = samples.length>0 && samples.every(s => s.speed >= startThreshold);
+
+    if(!running){
+      if(ready){
+        running=true; startTime = now; cumulative=0; peakSpeed = speed; samples=[{t:now,speed:speed}]; resetMarks(); setStatus('running'); return;
+      } else { setStatus('armed — waiting throttle'); return; }
+    }
+
+    // running
+    cumulative += d;
+    distanceEl.textContent = cumulative.toFixed(2) + ' m';
+    distk.textContent = cumulative.toFixed(2);
+
+    const elapsed = (now - startTime)/1000;
+    timeEl.textContent = elapsed.toFixed(3) + ' s';
+    timek.textContent = elapsed.toFixed(3);
+
+    const avg = elapsed>0 ? (cumulative/elapsed)*3.6 : 0;
+    avgEl.textContent = avg.toFixed(1);
+
+    // rollout offset
+    const rolloutOffset = (rolloutChk && rolloutChk.checked) ? 0.3048 : 0;
+
+    // capture milestones
+    for(let m of MILESTONES){
+      if(!marks[m] && cumulative >= (m - rolloutOffset)){
+        marks[m] = { time: elapsed, speed: speed };
+        renderRunResults();
+      }
+    }
+
+    // finish when 402 reached
+    if(marks[402]){
+      finishRun();
+    }
+
+    // mode-based finish (if modeSelect exists)
+    if(modeSelect){
+      const mode = modeSelect.value;
+      if(mode === '201' && cumulative >= (201 - rolloutOffset)) finishRun();
+      if(mode === '402' && cumulative >= (402 - rolloutOffset)) finishRun();
+      if(mode === '0-100' && peakSpeed >= 100) finishRun();
+      if(mode === '0-140' && peakSpeed >= 140) finishRun();
+      if(mode === '60-100'){
+        const sp = samples.map(s=>s.speed);
+        if(sp.some(s=>s>=60) && sp.some(s=>s>=100)) finishRun();
+      }
+    }
+  }
+
+  // arm / stop / reset / save / export
+  function arm(){
+    if(armed){
+      armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; samples=[]; resetMarks();
+      if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+      setStatus('idle'); resetUI(); return;
+    }
+    if(!('geolocation' in navigator)){ alert('Geolocation tidak tersedia'); return; }
+    running=false; armed=true; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; samples=[]; resetMarks();
+    setStatus('arming — requesting GPS');
+    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(onPos, e => { setStatus('GPS error: ' + e.message); }, { enableHighAccuracy:true, maximumAge:0, timeout:10000 });
+  }
+
+  function stop(){
+    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+    running=false; armed=false; setStatus('stopped');
+  }
+
+  function resetAll(){
+    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+    armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; samples=[];
+    resetMarks(); resetUI(); setStatus('idle');
+  }
+
+  function saveRun(){
+    if(!window._lastRun){ alert('Tidak ada run untuk disimpan'); return; }
+    history.unshift(window._lastRun);
+    localStorage.setItem('rb_history', JSON.stringify(history));
+    alert('Run disimpan.');
+    renderHistory();
+  }
+
+  function exportCSV(){
+    if(history.length===0){ alert('History kosong'); return; }
+    const rows=[['d20_s','d100_s','d201_s','d402_s','s20_kmh','s100_kmh','s201_kmh','s402_kmh','peak_kmh','date']];
+    history.forEach(h=>{
+      rows.push([
+        h.d20?h.d20.toFixed(3):'',
+        h.d100?h.d100.toFixed(3):'',
+        h.d201?h.d201.toFixed(3):'',
+        h.d402?h.d402.toFixed(3):'',
+        h.s20?h.s20.toFixed(2):'',
+        h.s100?h.s100.toFixed(2):'',
+        h.s201?h.s201.toFixed(2):'',
+        h.s402?h.s402.toFixed(2):'',
+        h.peak?h.peak.toFixed(2):'',
+        new Date(h.date).toISOString()
+      ]);
+    });
+    const csv = rows.map(r=>r.join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download='racebox_history.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // attach events
+  armBtn.addEventListener('click', arm);
+  stopBtn.addEventListener('click', stop);
+  resetBtn.addEventListener('click', resetAll);
+  saveBtn.addEventListener('click', saveRun);
+  exportBtn.addEventListener('click', exportCSV);
+
+  // init
+  resetUI(); renderHistory();
+
+  // service worker optional
+  if('serviceWorker' in navigator){
+    try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){}
+  }
+
+  // expose for debug
+  window.RaceBox = { state: ()=>({armed,running,cumulative,peakSpeed,marks,history}), lastRun: ()=>window._lastRun||null };
+
+})();
+</script>
 </body>
 </html>
