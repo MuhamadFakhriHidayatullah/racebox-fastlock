@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>RaceBox PRO — Full</title>
+<title>RaceBox PRO — Fixed Full</title>
 <style>
-/* RaceBox PRO — Full UI (dark neon) */
+/* RaceBox PRO — Full UI (dark neon) - fixed */
 :root{
   --bg:#04050a;
   --card:#0f1720;
@@ -14,8 +14,6 @@
   --neon:#ff3b30;
   --neon-2:#ff6b55;
   --accent:#64d2ff;
-  --success:#28c76f;
-  --radius:12px;
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
   color-scheme: dark;
 }
@@ -91,7 +89,6 @@ th{color:var(--muted);font-weight:700;font-size:12px}
   .big{font-size:40px}
   .brand{font-size:18px}
 }
-
 @media(max-width:520px){
   .big{font-size:34px}
   .info-item .val{font-size:16px}
@@ -104,7 +101,7 @@ th{color:var(--muted);font-weight:700;font-size:12px}
   <div class="container">
     <div class="header">
       <div class="brand">RaceBox PRO</div>
-      <div class="subtitle">Drag Timer — 20 / 100 / 201 / 402 — Full Edition</div>
+      <div class="subtitle">Drag Timer — 20 / 100 / 201 / 402 — Fixed</div>
     </div>
 
     <div class="controls">
@@ -141,6 +138,11 @@ th{color:var(--muted);font-weight:700;font-size:12px}
         <div class="block">
           <div class="label">Time</div>
           <div id="time" class="big">0.000 s</div>
+        </div>
+
+        <div class="block">
+          <div class="label">Avg</div>
+          <div id="avg" class="small">—</div>
         </div>
 
         <div style="margin-left:auto">
@@ -248,19 +250,27 @@ th{color:var(--muted);font-weight:700;font-size:12px}
   </div>
 
 <script>
-/* RaceBox PRO - Full script */
-/* Features:
-   - start only when gas (>=3 km/h stable ~400ms)
-   - milestones 20/100/201/402
-   - 1ft rollout
-   - graph + peak line
-   - G-force calculation
-   - dyno input + WHP estimation
-   - history + export
+/* RaceBox PRO - Fixed Full script
+   - All fixes integrated
+   - Lower start threshold, larger accuracy tolerance
+   - finished flag, safe clearing, missing-element safe
 */
 
+// Config tuned for real phones
+const CONFIG = {
+  GHOST_THRESHOLD_KMH: 2.2,
+  START_THRESHOLD_KMH: 2.2,
+  START_WINDOW_MS: 300,
+  SPEED_SMOOTH_ALPHA: 0.25,
+  HEADING_MAX_DEG: 45,
+  REBUILD_SPEED_MAX_DT: 1200,
+  ROLL_OUT_M: 0.3048,
+  ACCURACY_ALLOW: 120,
+  GRAPH_MAX_POINTS: 240
+};
+
 (function(){
-  // DOM refs
+  // DOM refs (safe lookups)
   const armBtn = document.getElementById('armBtn');
   const stopBtn = document.getElementById('stopBtn');
   const resetBtn = document.getElementById('resetBtn');
@@ -271,9 +281,9 @@ th{color:var(--muted);font-weight:700;font-size:12px}
   const speedDisplay = document.getElementById('speedDisplay');
   const distanceEl = document.getElementById('distance');
   const timeEl = document.getElementById('time');
+  const avgEl = document.getElementById('avg');
   const accEl = document.getElementById('accuracy');
   const peakEl = document.getElementById('peak');
-  const avgEl = document.getElementById('avg');
   const spk = document.getElementById('spk');
   const distk = document.getElementById('distk');
   const timek = document.getElementById('timek');
@@ -281,7 +291,7 @@ th{color:var(--muted);font-weight:700;font-size:12px}
   const rawRun = document.getElementById('rawRun');
   const historyTableBody = document.querySelector('#historyTable tbody');
   const speedGraph = document.getElementById('speedGraph');
-  const ctx = speedGraph.getContext('2d');
+  const ctx = speedGraph ? speedGraph.getContext('2d') : null;
   const modeSelect = document.getElementById('modeSelect');
   const estimateBtn = document.getElementById('estimateBtn');
   const massInput = document.getElementById('massInput');
@@ -296,139 +306,130 @@ th{color:var(--muted);font-weight:700;font-size:12px}
   let watchId = null;
   let armed = false;
   let running = false;
+  let finished = false;
   let startPos = null;
   let lastPos = null;
+  let lastHeading = null;
   let cumulative = 0;
   let startTime = null;
   let peakSpeed = 0;
   let peakG = 0;
-  let samples = []; // {t, speed_kmh}
+  let samples = []; // {t, speed}
+  let graphSamples = [];
   let history = JSON.parse(localStorage.getItem('rb_history') || '[]');
 
   const MILESTONES = [20,100,201,402];
-  let marks = {}; // marks[m] = {time, speed}
+  let marks = {};
 
-  // dyno saved
-  function loadDyno(){
-    const hp = localStorage.getItem('dyno_hp');
-    const rpm = localStorage.getItem('dyno_rpm');
-    if(hp){
-      dynoHP.value = hp;
-      dynoHP_RPM.value = rpm || '';
-      dynoResult.textContent = `Dyno: ${hp} HP @ ${rpm||'—'} RPM`;
-    } else {
-      dynoResult.textContent = 'Dyno not set';
-    }
-  }
-  loadDyno();
+  // Kalman-like simple smoothing using low-pass + fallback (kept simple)
+  function lowPass(prev, cur, alpha){ return (alpha*cur) + ((1-alpha)*prev); }
 
-  function saveDyno(){
-    const hp = parseFloat(dynoHP.value);
-    const rpm = parseInt(dynoHP_RPM.value);
-    if(isNaN(hp)){ alert('Masukkan dyno HP valid'); return; }
-    localStorage.setItem('dyno_hp', hp);
-    localStorage.setItem('dyno_rpm', rpm || '');
-    dynoResult.textContent = `Dyno: ${hp} HP @ ${rpm||'—'} RPM`;
-  }
-  saveDynoBtn.addEventListener('click', saveDyno);
+  function setStatus(s){ if(statusBar) statusBar.textContent = s; }
 
-  function setStatus(s){ statusBar.textContent = s; }
-  function resetMarks(){ marks={}; MILESTONES.forEach(m=>marks[m]=null); }
+  function resetMarks(){ marks = {}; MILESTONES.forEach(m=>marks[m]=null); }
+
   function resetUI(){
-    distanceEl.textContent='0.00 m';
-    timeEl.textContent='0.000 s';
-    speedDisplay.textContent='0.0 km/h';
-    peakEl.textContent='— km/h';
-    avgEl.textContent='—';
-    accEl.textContent='— m';
-    spk.textContent='0.0';
-    distk.textContent='0.00';
-    timek.textContent='0.000';
-    runResults.innerHTML = '<div style="grid-column:1/3;color:var(--muted);text-align:center">No run yet. ARM then gas to start.</div>';
-    rawRun.textContent = '—';
-    clearGraph();
-  }
-  resetMarks();
-
-  // haversine distance
-  function hav(a,b){
-    const R=6371000, r=Math.PI/180;
-    const dLat=(b.latitude-a.latitude)*r;
-    const dLon=(b.longitude-a.longitude)*r;
-    const la=a.latitude*r, lb=b.latitude*r;
-    const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);
-    const h=s1*s1 + Math.cos(la)*Math.cos(lb)*s2*s2;
-    return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+    if(distanceEl) distanceEl.textContent='0.00 m';
+    if(timeEl) timeEl.textContent='0.000 s';
+    if(speedDisplay) speedDisplay.textContent='0.0 km/h';
+    if(avgEl) avgEl.textContent='—';
+    if(accEl) accEl.textContent='— m';
+    if(spk) spk.textContent='0.0';
+    if(distk) distk.textContent='0.00';
+    if(timek) timek.textContent='0.000';
+    if(runResults) runResults.innerHTML = '<div style="grid-column:1/3;color:var(--muted);text-align:center">No run yet. ARM then gas to start.</div>';
+    if(rawRun) rawRun.textContent='—';
+    samples = []; graphSamples = []; peakSpeed = 0; peakG = 0;
+    if(ctx) ctx.clearRect(0,0,speedGraph.width,speedGraph.height);
   }
 
-  // graph helpers
-  function clearGraph(){ ctx.clearRect(0,0,speedGraph.width,speedGraph.height); ctx.fillStyle='#071226'; ctx.fillRect(0,0,speedGraph.width,speedGraph.height); }
+  // haversine
+  function hav(a,b){ const R=6371000, r=Math.PI/180; const dLat=(b.latitude-a.latitude)*r; const dLon=(b.longitude-a.longitude)*r; const la=a.latitude*r, lb=b.latitude*r; const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2); const h=s1*s1 + Math.cos(la)*Math.cos(lb)*s2*s2; return R*2*Math.atan2(Math.sqrt(h), Math.sqrt(1-h)); }
+
+  function headingDeg(a,b){
+    const rad = Math.PI/180;
+    const y = Math.sin((b.longitude - a.longitude)*rad) * Math.cos(b.latitude*rad);
+    const x = Math.cos(a.latitude*rad)*Math.sin(b.latitude*rad) - Math.sin(a.latitude*rad)*Math.cos(b.latitude*rad)*Math.cos((b.longitude - a.longitude)*rad);
+    const brad = Math.atan2(y,x);
+    return (brad*180/Math.PI + 360) % 360;
+  }
+
+  function clearGraph(){ if(!ctx) return; ctx.clearRect(0,0,speedGraph.width,speedGraph.height); ctx.fillStyle='#071226'; ctx.fillRect(0,0,speedGraph.width,speedGraph.height); }
+
   function drawGraph(){
+    if(!ctx) return;
     clearGraph();
-    const pts = samples.slice(-200);
+    const pts = graphSamples.slice(-CONFIG.GRAPH_MAX_POINTS);
     if(pts.length===0) return;
     const w = speedGraph.width, h = speedGraph.height;
     const maxSpeed = Math.max(100, ...pts.map(p=>p.speed));
-    ctx.strokeStyle = '#64d2ff'; ctx.lineWidth=2; ctx.beginPath();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#64d2ff'; ctx.beginPath();
     pts.forEach((p,i)=>{
       const x = (i/(pts.length-1))*w;
       const y = h - (p.speed/maxSpeed)*h;
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     });
     ctx.stroke();
-    // peak line
+    // vertical line at last milestone if any
+    const lastPeak = peakSpeed;
     ctx.setLineDash([6,4]);
-    ctx.strokeStyle='rgba(255,59,48,0.18)';
-    const pkY = h - (peakSpeed/maxSpeed)*h;
+    ctx.strokeStyle = 'rgba(255,59,48,0.18)';
+    // draw horizontal peak line
+    const pkY = h - (lastPeak/maxSpeed)*h;
     ctx.beginPath(); ctx.moveTo(0,pkY); ctx.lineTo(w,pkY); ctx.stroke();
     ctx.setLineDash([]);
   }
 
-  // render run results
   function renderRunResults(){
-    runResults.innerHTML='';
-    for(let m of MILESTONES){
-      const mk = marks[m];
-      const container = document.createElement('div'); container.className='milestone';
-      const ddiv = document.createElement('div'); ddiv.className='dist'; ddiv.textContent = m + ' m';
-      const tdiv = document.createElement('div'); tdiv.className='time'; tdiv.textContent = mk && mk.time ? mk.time.toFixed(2)+' s' : '—';
-      const sdiv = document.createElement('div'); sdiv.className='speed'; sdiv.textContent = mk && mk.speed ? mk.speed.toFixed(2)+' km/h' : '—';
-      container.appendChild(ddiv); container.appendChild(tdiv); container.appendChild(sdiv);
-      runResults.appendChild(container);
+    if(!runResults || !window._lastRun) return;
+    const r = window._lastRun;
+    runResults.innerHTML = '';
+    for(const m of MILESTONES){
+      const mk = r.marks && r.marks[m];
+      const div = document.createElement('div'); div.className='milestone';
+      const d = document.createElement('div'); d.className='dist'; d.textContent = m + ' m';
+      const t = document.createElement('div'); t.className='time'; t.textContent = mk && mk.time ? mk.time.toFixed(2)+' s' : '—';
+      const s = document.createElement('div'); s.className='speed'; s.textContent = mk && mk.speed ? mk.speed.toFixed(2)+' km/h' : '—';
+      div.appendChild(d); div.appendChild(t); div.appendChild(s);
+      runResults.appendChild(div);
     }
     const peakRow = document.createElement('div'); peakRow.style.gridColumn='1/3'; peakRow.style.textAlign='center'; peakRow.style.marginTop='8px';
-    peakRow.innerHTML = `<div style="font-weight:800">Peak: ${peakSpeed?peakSpeed.toFixed(2)+' km/h':'—'} &nbsp; • &nbsp; Peak G: ${peakG?peakG.toFixed(2)+' g':'—'}</div>`;
+    peakRow.innerHTML = `<div style="font-weight:800">Peak: ${r.peak?r.peak.toFixed(2)+' km/h':'—'} &nbsp; • &nbsp; Peak G: ${r.peakG?r.peakG.toFixed(2)+' g':'—'}</div>`;
     runResults.appendChild(peakRow);
   }
 
-  // history render
   function renderHistory(){
-    historyTableBody.innerHTML='';
+    if(!historyTableBody) return;
+    historyTableBody.innerHTML = '';
     history.forEach((h,i)=>{
-      const tr=document.createElement('tr');
+      const tr = document.createElement('tr');
       tr.innerHTML = `<td>${i+1}</td><td>${h.mode||''}</td><td>${h.d20?h.d20.toFixed(3):''}</td><td>${h.d100?h.d100.toFixed(3):''}</td><td>${h.d201?h.d201.toFixed(3):''}</td><td>${h.d402?h.d402.toFixed(3):''}</td><td>${h.peak?h.peak.toFixed(1):''}</td><td>${new Date(h.date).toLocaleString()}</td>`;
       historyTableBody.appendChild(tr);
     });
   }
 
-  // estimate WHP using kinetic energy method: 0.5*m*v^2 / t => W => HP
+  // Estimate WHP (energy based)
   function estimateWHP(massKg, marker){
     if(!window._lastRun || !window._lastRun.marks) return null;
     const mk = window._lastRun.marks[marker];
     if(!mk || !mk.time || !mk.speed) return null;
-    // speed in km/h -> m/s
-    const v = mk.speed / 3.6;
+    const v = mk.speed / 3.6; // m/s
     const t = mk.time;
     if(t <= 0 || v <= 0) return null;
     const energy = 0.5 * massKg * v * v; // J
-    const powerW = energy / t; // W average during period
+    const powerW = energy / t;
     const hp = powerW / 745.7;
-    return {hp: hp, powerW: powerW, v: v, t: t};
+    return {hp, powerW, v, t};
   }
 
-  // finishing
+  // Finish run: safe freeze & cleanup
   function finishRun(){
-    running=false; armed=false; setStatus('finish — run complete');
+    if(finished) return;
+    finished = true;
+    running = false;
+    armed = false;
+    setStatus('finish — run complete');
+
     const last = {
       mode: modeSelect ? modeSelect.value : '',
       date: Date.now(),
@@ -444,163 +445,234 @@ th{color:var(--muted);font-weight:700;font-size:12px}
       s201: marks[201] ? marks[201].speed : null,
       s402: marks[402] ? marks[402].speed : null,
       distance: cumulative,
-      rollout: !!(rolloutChk && rolloutChk.checked)
+      rollout: !!(rolloutChk && rolloutChk.checked),
+      peakG: peakG
     };
     window._lastRun = last;
-    rawRun.textContent = JSON.stringify(last, null, 2);
     renderRunResults();
-    // auto-render history but do not auto-save
     renderHistory();
-    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+    if(rawRun) rawRun.textContent = JSON.stringify(last, null, 2);
+    // stop GPS updates
+    if(watchId){ try{ navigator.geolocation.clearWatch(watchId); }catch(e){}; watchId = null; }
+    // clear transient samples to avoid further UI jitter
+    samples = []; graphSamples = [];
   }
 
-  // position handler
+  // Main GPS handler
   function onPos(p){
+    if(!p || !p.coords) return;
+    if(finished) return; // ignore after finish
+
     const c = p.coords;
-    accEl.textContent = (c.accuracy||0).toFixed(1) + ' m';
-    let speed = (c.speed || 0) * 3.6; // km/h
-    if(speed < 2.5) speed = 0; // ghost filter
-    const cur = { latitude:c.latitude, longitude:c.longitude, speed: speed };
+    if(accEl) accEl.textContent = (c.accuracy||0).toFixed(1) + ' m';
+
+    // measured speed (may be null)
+    let measuredKmh = (typeof c.speed === 'number') ? c.speed * 3.6 : null;
     const now = performance.now();
 
-    // compute acceleration (g)
-    if(samples.length>0){
-      const prev = samples[samples.length-1];
+    // compute delta if lastPos exists
+    let d = 0;
+    if(lastPos && c.latitude && c.longitude){
+      const dtmp = hav(lastPos, {latitude: c.latitude, longitude: c.longitude});
+      const hNow = lastHeading !== null ? headingDeg(lastPos, {latitude: c.latitude, longitude: c.longitude}) : null;
+      let headingOk = true;
+      if(lastHeading !== null && hNow !== null){
+        const diff = Math.abs(((hNow - lastHeading + 540) % 360) - 180);
+        if(diff > CONFIG.HEADING_MAX_DEG) headingOk = false;
+      }
+      lastHeading = hNow;
+
+      // rebuild speed if measured missing or too small
+      const dtMs = samples.length ? now - samples[samples.length-1].t : 0;
+      if((measuredKmh === null || measuredKmh < 0.5) && dtMs > 0 && dtMs <= CONFIG.REBUILD_SPEED_MAX_DT && headingOk){
+        const rebuilt = (dtmp / (dtMs/1000)) * 3.6; // km/h
+        measuredKmh = rebuilt;
+      }
+
+      // use delta for distance accumulation only after start
+      d = headingOk ? dtmp : 0;
+    }
+
+    // ghost filter
+    if(measuredKmh !== null && measuredKmh < CONFIG.GHOST_THRESHOLD_KMH) measuredKmh = 0;
+
+    // smoothing (low-pass)
+    const lastSpeed = samples.length ? samples[samples.length-1].speed : (measuredKmh || 0);
+    const smooth = lowPass(lastSpeed, measuredKmh !== null ? measuredKmh : lastSpeed, CONFIG.SPEED_SMOOTH_ALPHA);
+
+    // push sample (keep window)
+    samples.push({t: now, speed: smooth});
+    const maxKeep = 3000;
+    samples = samples.filter(s => now - s.t <= maxKeep);
+
+    graphSamples.push({t: now, speed: smooth});
+    if(graphSamples.length > 2000) graphSamples.shift();
+
+    if(speedDisplay) speedDisplay.textContent = smooth.toFixed(1) + ' km/h';
+    if(spk) spk.textContent = smooth.toFixed(1);
+    if(measuredKmh !== null && measuredKmh > peakSpeed) peakSpeed = measuredKmh;
+    if(peakEl) peakEl.textContent = peakSpeed ? peakSpeed.toFixed(1) + ' km/h' : '—';
+
+    // compute G (rough) using last sample delta
+    if(samples.length > 1){
+      const prev = samples[samples.length-2];
       const dt = (now - prev.t)/1000;
-      if(dt>0){
-        const dv = (speed - prev.speed)/3.6; // m/s
-        const a = dv / dt; // m/s^2
-        const g = a / 9.80665;
+      if(dt > 0){
+        const dv = (smooth - prev.speed)/3.6; // m/s
+        const accel = dv / dt;
+        const g = accel / 9.80665;
         if(g > peakG) peakG = g;
+        const peakGEl = document.getElementById('peakG');
+        if(peakGEl) peakGEl.textContent = peakG ? peakG.toFixed(2) + ' g' : '—';
       }
     }
 
-    samples.push({t: now, speed: speed});
-    samples = samples.filter(s => now - s.t <= 1000); // keep 1s for g smoothing and graph
-
-    speedDisplay.textContent = speed.toFixed(1) + ' km/h';
-    spk.textContent = speed.toFixed(1);
-    if(speed > peakSpeed) peakSpeed = speed;
-    peakEl.textContent = peakSpeed ? peakSpeed.toFixed(1)+' km/h' : '—';
-    document.getElementById('peakG').textContent = peakG?peakG.toFixed(2)+' g':'—';
-
     drawGraph();
 
-    if(!armed) return;
-
-    if(!startPos){
-      if(c.accuracy <= 50){
-        startPos = cur; lastPos = cur; setStatus('armed — waiting throttle'); return;
-      } else { setStatus('arming — waiting GPS accuracy'); return; }
+    // if not armed, update lastPos only and exit
+    if(!armed){
+      lastPos = { latitude: c.latitude, longitude: c.longitude };
+      return;
     }
 
-    const d = hav(lastPos, cur);
-    lastPos = cur;
+    // require reasonable GPS lock before start
+    if(!startPos){
+      if(c.accuracy <= CONFIG.ACCURACY_ALLOW){
+        startPos = { latitude: c.latitude, longitude: c.longitude };
+        lastPos = startPos;
+        lastHeading = null;
+        setStatus('armed — waiting throttle');
+      } else {
+        setStatus('arming — waiting GPS accuracy');
+      }
+      lastPos = { latitude: c.latitude, longitude: c.longitude };
+      return;
+    }
 
-    // start condition: stable >= 3 km/h in last ~400ms
-    const startThreshold = 3;
-    const windowMs = 400;
-    const nowp = performance.now();
-    const recent = samples.filter(s => nowp - s.t <= windowMs);
-    const ready = recent.length>0 && recent.every(s => s.speed >= startThreshold);
+    // START detection: stable >= START_THRESHOLD for window
+    const nowMs = performance.now();
+    const recent = samples.filter(s => nowMs - s.t <= CONFIG.START_WINDOW_MS);
+    const ready = recent.length > 0 && recent.every(s => s.speed >= CONFIG.START_THRESHOLD_KMH);
 
     if(!running){
       if(ready){
-        running=true; startTime = now; cumulative=0; peakSpeed = speed; samples=[{t:now,speed:speed}]; resetMarks(); setStatus('running'); return;
-      } else { setStatus('armed — waiting throttle'); return; }
+        running = true;
+        startTime = now;
+        cumulative = 0;
+        peakSpeed = smooth;
+        samples = [{t: now, speed: smooth}];
+        resetMarks();
+        setStatus('running');
+      } else {
+        setStatus('armed — waiting throttle');
+      }
+      lastPos = { latitude: c.latitude, longitude: c.longitude };
+      return;
     }
 
-    // RUNNING
+    // RUNNING: accumulate distance/time
     cumulative += d;
-    distanceEl.textContent = cumulative.toFixed(2) + ' m';
-    distk.textContent = cumulative.toFixed(2);
+    if(distanceEl) distanceEl.textContent = cumulative.toFixed(2) + ' m';
+    if(distk) distk.textContent = cumulative.toFixed(2);
 
     const elapsed = (now - startTime)/1000;
-    timeEl.textContent = elapsed.toFixed(3) + ' s';
-    timek.textContent = elapsed.toFixed(3);
+    if(timeEl) timeEl.textContent = elapsed.toFixed(3) + ' s';
+    if(timek) timek.textContent = elapsed.toFixed(3);
 
-    const avg = elapsed>0 ? (cumulative/elapsed)*3.6 : 0;
-    avgEl.textContent = avg.toFixed(1);
+    const avg = elapsed > 0 ? (cumulative / elapsed) * 3.6 : 0;
+    if(avgEl) avgEl.textContent = avg.toFixed(1) + ' km/h';
 
-    const rolloutOffset = (rolloutChk && rolloutChk.checked) ? 0.3048 : 0;
+    const rolloutOffset = (rolloutChk && rolloutChk.checked) ? CONFIG.ROLL_OUT_M : 0;
 
-    for(let m of MILESTONES){
+    for(const m of MILESTONES){
       if(!marks[m] && cumulative >= (m - rolloutOffset)){
-        marks[m] = { time: elapsed, speed: speed };
+        marks[m] = { time: elapsed, speed: smooth };
         renderRunResults();
       }
     }
 
-    // finish conditions
-    if(marks[402]){ finishRun(); return; }
+    // finish triggers
+    if(marks[402]){ finishRun(); lastPos = { latitude: c.latitude, longitude: c.longitude }; return; }
 
     if(modeSelect){
       const mode = modeSelect.value;
-      if(mode === '201' && cumulative >= (201 - rolloutOffset)) finishRun();
-      if(mode === '402' && cumulative >= (402 - rolloutOffset)) finishRun();
-      if(mode === '0-100' && peakSpeed >= 100) finishRun();
-      if(mode === '0-140' && peakSpeed >= 140) finishRun();
+      if(mode === '201' && cumulative >= (201 - rolloutOffset)){ finishRun(); lastPos = { latitude: c.latitude, longitude: c.longitude }; return; }
+      if(mode === '402' && cumulative >= (402 - rolloutOffset)){ finishRun(); lastPos = { latitude: c.latitude, longitude: c.longitude }; return; }
+      if(mode === '0-100' && peakSpeed >= 100){ finishRun(); lastPos = { latitude: c.latitude, longitude: c.longitude }; return; }
+      if(mode === '0-140' && peakSpeed >= 140){ finishRun(); lastPos = { latitude: c.latitude, longitude: c.longitude }; return; }
       if(mode === '60-100'){
-        const sps = samples.map(s=>s.speed);
-        if(sps.some(s=>s>=60) && sps.some(s=>s>=100)) finishRun();
+        const lastSpeeds = samples.slice(-10).map(s => s.speed);
+        if(lastSpeeds.some(s => s >= 60) && lastSpeeds.some(s => s >= 100)){ finishRun(); lastPos = { latitude: c.latitude, longitude: c.longitude }; return; }
       }
     }
-  }
 
-  // arm / stop / reset / save / export
+    lastPos = { latitude: c.latitude, longitude: c.longitude };
+  } // end onPos
+
+  // UI handlers
   function arm(){
+    // if already armed, disarm (toggle)
     if(armed){
-      // disarm
-      armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; peakG=0; samples=[]; resetMarks();
-      if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+      armed = false; running = false; finished = false;
+      startPos = null; lastPos = null; lastHeading = null;
+      cumulative = 0; startTime = null; peakSpeed = 0; peakG = 0; samples = []; graphSamples = [];
+      resetMarks();
+      if(watchId){ navigator.geolocation.clearWatch(watchId); watchId = null; }
       setStatus('idle'); resetUI(); return;
     }
     if(!('geolocation' in navigator)){ alert('Geolocation tidak tersedia'); return; }
-    running=false; armed=true; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; peakG=0; samples=[]; resetMarks();
+    running = false; armed = true; finished = false;
+    startPos = null; lastPos = null; lastHeading = null;
+    cumulative = 0; startTime = null; peakSpeed = 0; peakG = 0; samples = []; graphSamples = [];
+    resetMarks();
     setStatus('arming — requesting GPS');
-    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
-    watchId = navigator.geolocation.watchPosition(onPos, e => { setStatus('GPS error: ' + e.message); }, { enableHighAccuracy:true, maximumAge:0, timeout:10000 });
+    if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(onPos, e => { setStatus('GPS error: ' + e.message); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
   }
 
   function stop(){
-    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-    running=false; armed=false; setStatus('stopped');
+    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+    running = false; armed = false; finished = false;
+    setStatus('stopped');
   }
 
   function resetAll(){
-    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-    armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; peakG=0; samples=[];
+    if(watchId){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+    armed = false; running = false; finished = false;
+    startPos = null; lastPos = null; lastHeading = null;
+    cumulative = 0; startTime = null; peakSpeed = 0; peakG = 0;
+    samples = []; graphSamples = [];
     resetMarks(); resetUI(); setStatus('idle');
   }
 
   function saveRun(){
     if(!window._lastRun){ alert('Tidak ada run untuk disimpan'); return; }
-    // append dyno info if available
     const last = JSON.parse(JSON.stringify(window._lastRun));
-    const dynoHPv = parseFloat(localStorage.getItem('dyno_hp'));
-    if(dynoHPv) last.dynoHP = dynoHPv;
+    // attach dyno info if available
+    const dynoHp = parseFloat(localStorage.getItem('dyno_hp'));
+    if(dynoHp) last.dynoHP = dynoHp;
     history.unshift(last);
     localStorage.setItem('rb_history', JSON.stringify(history));
-    alert('Run disimpan.');
     renderHistory();
+    alert('Run disimpan.');
   }
 
   function exportCSV(){
-    if(history.length===0){ alert('History kosong'); return; }
+    if(history.length === 0){ alert('History kosong'); return; }
     const rows = [['d20_s','d100_s','d201_s','d402_s','s20_kmh','s100_kmh','s201_kmh','s402_kmh','peak_kmh','peak_g','rollout','date']];
     history.forEach(h=>{
       rows.push([
-        h.d20?h.d20.toFixed(3):'',
-        h.d100?h.d100.toFixed(3):'',
-        h.d201?h.d201.toFixed(3):'',
-        h.d402?h.d402.toFixed(3):'',
-        h.s20?h.s20.toFixed(2):'',
-        h.s100?h.s100.toFixed(2):'',
-        h.s201?h.s201.toFixed(2):'',
-        h.s402?h.s402.toFixed(2):'',
-        h.peak?h.peak.toFixed(2):'',
-        h.peakG?h.peakG.toFixed(2):'',
-        h.rollout?1:0,
+        h.d20 ? h.d20.toFixed(3) : '',
+        h.d100 ? h.d100.toFixed(3) : '',
+        h.d201 ? h.d201.toFixed(3) : '',
+        h.d402 ? h.d402.toFixed(3) : '',
+        h.s20 ? h.s20.toFixed(2) : '',
+        h.s100 ? h.s100.toFixed(2) : '',
+        h.s201 ? h.s201.toFixed(2) : '',
+        h.s402 ? h.s402.toFixed(2) : '',
+        h.peak ? h.peak.toFixed(2) : '',
+        h.peakG ? h.peakG.toFixed(2) : '',
+        h.rollout ? 1 : 0,
         new Date(h.date).toISOString()
       ]);
     });
@@ -611,41 +683,62 @@ th{color:var(--muted);font-weight:700;font-size:12px}
     URL.revokeObjectURL(url);
   }
 
+  // dyno load/save
+  function loadDyno(){
+    const hp = localStorage.getItem('dyno_hp');
+    const rpm = localStorage.getItem('dyno_rpm');
+    if(hp){
+      dynoHP.value = hp;
+      dynoHP_RPM.value = rpm || '';
+      dynoResult.textContent = `Dyno: ${hp} HP @ ${rpm||'—'} RPM`;
+    } else {
+      dynoResult.textContent = 'Dyno not set';
+    }
+  }
+  function saveDyno(){
+    const hp = parseFloat(dynoHP.value);
+    const rpm = parseInt(dynoHP_RPM.value);
+    if(isNaN(hp)){ alert('Masukkan dyno HP valid'); return; }
+    localStorage.setItem('dyno_hp', hp);
+    localStorage.setItem('dyno_rpm', rpm || '');
+    dynoResult.textContent = `Dyno: ${hp} HP @ ${rpm||'—'} RPM`;
+  }
+  if(saveDynoBtn) saveDynoBtn.addEventListener('click', saveDyno);
+  loadDyno();
+
   // estimate button
-  estimateBtn.addEventListener('click', ()=>{
-    const mass = parseFloat(massInput.value);
-    const marker = parseInt(estMarker.value);
-    if(isNaN(mass) || mass <= 0){ alert('Masukkan mass (kg) yang valid'); return; }
+  if(estimateBtn) estimateBtn.addEventListener('click', ()=>{
+    const mass = parseFloat(massInput.value || '0');
+    const marker = parseInt(estMarker.value || '201', 10);
+    if(isNaN(mass) || mass <= 0){ alert('Masukkan mass (kg) valid'); return; }
     const res = estimateWHP(mass, marker);
     if(!res){ estimateResult.textContent='Marker data belum tersedia. Jalankan 1 run.'; return; }
-    estimateResult.innerHTML = `Estimate WHP: <strong>${res.hp.toFixed(2)} HP</strong> (avg power ${(res.powerW/1000).toFixed(2)} kW) — v=${(res.v).toFixed(2)} m/s, t=${res.t.toFixed(3)} s`;
+    estimateResult.innerHTML = `Estimate WHP: <strong>${res.hp.toFixed(2)} HP</strong> — avg ${(res.powerW/1000).toFixed(2)} kW (v=${res.v.toFixed(2)} m/s, t=${res.t.toFixed(3)} s)`;
   });
 
-  // attach dyno save handler (done earlier)
-  // saveDynoBtn already bound
+  // bindings
+  if(armBtn) armBtn.addEventListener('click', arm);
+  if(stopBtn) stopBtn.addEventListener('click', stop);
+  if(resetBtn) resetBtn.addEventListener('click', resetAll);
+  if(saveBtn) saveBtn.addEventListener('click', saveRun);
+  if(exportBtn) exportBtn.addEventListener('click', exportCSV);
 
-  // attach events
-  armBtn.addEventListener('click', arm);
-  stopBtn.addEventListener('click', stop);
-  resetBtn.addEventListener('click', resetAll);
-  saveBtn.addEventListener('click', saveRun);
-  exportBtn.addEventListener('click', exportCSV);
-
-  // init
-  resetUI(); renderHistory();
+  // init UI
+  resetMarks();
+  renderHistory();
+  resetUI();
   setStatus('idle');
-
-  // service worker optional
-  if('serviceWorker' in navigator){
-    try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){}
-  }
 
   // expose debug
   window.RaceBox = {
-    state: ()=>({armed,running,cumulative,peakSpeed,peakG,marks,history}),
+    state: ()=>({armed,running,finished,cumulative,peakSpeed,marks,history}),
     lastRun: ()=>window._lastRun || null,
-    estimateWHP: estimateWHP
+    estimateWHP
   };
+
+  if('serviceWorker' in navigator){
+    try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){}
+  }
 })();
 </script>
 </body>
