@@ -3,96 +3,108 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>RaceBox PRO — Drag Timer</title>
+<title>RaceBox PRO — Full</title>
 <style>
-/* RaceBox PRO - Dark Glass + Neon Red */
+/* RaceBox PRO — Full UI (dark neon) */
 :root{
-  --bg:#070812;
+  --bg:#04050a;
   --card:#0f1720;
   --glass: rgba(255,255,255,0.03);
-  --muted: #98a4b3;
-  --neon: #ff3b30;
-  --neon-2: #ff6b55;
+  --muted:#98a4b3;
+  --neon:#ff3b30;
+  --neon-2:#ff6b55;
   --accent:#64d2ff;
   --success:#28c76f;
   --radius:12px;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
   color-scheme: dark;
 }
+*{box-sizing:border-box;-webkit-tap-highlight-color: transparent}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,#02040a 0%, #071026 100%);color:#e6eef6}
+.container{max-width:1100px;margin:14px auto;padding:14px;border-radius:14px}
 
-*{box-sizing:border-box; -webkit-tap-highlight-color: transparent}
-html,body{height:100%;margin:0;background:linear-gradient(180deg,#04050a 0%,#081026 100%);color:#e6eef6}
-.container{max-width:980px;margin:14px auto;padding:14px;border-radius:14px}
-
-/* Top header */
+/* header */
 .header{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 6px 24px rgba(0,0,0,0.6)}
-.brand{font-weight:800;color:var(--neon);font-size:18px;letter-spacing:0.6px}
+.brand{font-weight:900;color:var(--neon);font-size:20px}
 .subtitle{color:var(--muted);font-size:13px;margin-left:auto}
 
-/* Controls */
-.controls{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
-.btn{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#dfeafe;cursor:pointer;font-weight:700;letter-spacing:0.3px}
-.btn:hover{transform:translateY(-1px)}
-.btn.arm{background:linear-gradient(90deg,var(--neon),var(--neon-2));box-shadow:0 8px 30px rgba(255,59,48,0.09),0 0 18px rgba(255,59,48,0.06);border:none;color:#fff}
-.btn.stop{background:linear-gradient(90deg,#444,#222);border:1px solid rgba(255,255,255,0.03)}
+/* controls */
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.btn{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#dfeafe;cursor:pointer;font-weight:700}
+.btn.arm{background:linear-gradient(90deg,var(--neon),var(--neon-2));border:none;color:#fff}
 .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.04)}
+.btn.stop{background:#222;border:1px solid rgba(255,255,255,0.03)}
+.control-right{margin-left:auto;display:flex;gap:10px;align-items:center}
 
-/* Status bar */
+/* status */
 .status{display:flex;gap:18px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015));border:1px solid rgba(255,255,255,0.02)}
 .block{display:flex;flex-direction:column}
 .label{font-size:12px;color:var(--muted)}
-.big{font-size:44px;font-weight:800;color:#ffffff;letter-spacing:1px}
+.big{font-size:50px;font-weight:900;color:#fff}
 .small{font-size:14px;color:#cfe6ff}
 
-/* Layout */
-.main{display:grid;grid-template-columns:1fr 360px;gap:14px;margin-top:12px}
-.card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015));padding:12px;border-radius:var(--radius);border:1px solid rgba(255,255,255,0.02)}
-.left{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px}
-.right{display:flex;flex-direction:column;gap:12px;padding:12px}
+/* layout */
+.main{display:grid;grid-template-columns:1fr 420px;gap:14px;margin-top:12px}
+.card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.015));padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+.left{display:flex;flex-direction:column;gap:12px;align-items:center}
+.right{display:flex;flex-direction:column;gap:12px}
 
-/* Small info row */
+/* top info row */
+.top-info{width:100%;display:flex;gap:12px;justify-content:space-between;align-items:center}
+.badge{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);font-weight:700}
+
+/* info row */
 .info-row{display:flex;gap:12px;width:100%;justify-content:space-between}
 .info-item{text-align:center}
-.info-item .val{font-weight:800;font-size:18px;color:#fff}
+.info-item .val{font-weight:900;font-size:20px;color:#fff}
 .info-item .muted{font-size:12px;color:var(--muted)}
 
-/* Milestones list */
+/* milestones */
 .milestones{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.milestone{background:var(--card);padding:10px;border-radius:8px;text-align:center;border:1px solid rgba(255,255,255,0.02)}
-.milestone .dist{font-weight:800;font-size:16px;color:var(--accent)}
-.milestone .time{margin-top:6px;font-weight:700;font-size:16px}
-.milestone .speed{font-size:12px;color:var(--muted);margin-top:4px}
+.milestone{background:var(--card);padding:12px;border-radius:10px;text-align:center;border:1px solid rgba(255,255,255,0.02)}
+.milestone .dist{font-size:16px;font-weight:900;color:var(--accent)}
+.milestone .time{margin-top:6px;font-weight:800;font-size:16px;color:#fff}
+.milestone .speed{font-size:12px;color:var(--muted)}
 
-/* Graph */
-.graph{width:100%;height:120px;border-radius:8px;background:linear-gradient(180deg,#071226,#04101a);display:flex;align-items:center;justify-content:center;color:#7fbfe8;border:1px solid rgba(255,255,255,0.02)}
+/* graph */
+.graph{width:100%;height:150px;border-radius:8px;background:linear-gradient(180deg,#071226,#04101a);display:flex;align-items:center;justify-content:center;color:#7fbfe8;border:1px solid rgba(255,255,255,0.02)}
+canvas{border-radius:8px}
 
-/* History table */
-.history{max-height:280px;overflow:auto}
+/* dyno / estimate box */
+.box{background:#071021;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type="number"], select { background:transparent; border:1px solid rgba(255,255,255,0.04); padding:8px; border-radius:8px; color:#dfeafe}
+label{color:var(--muted);font-size:13px}
+
+/* history */
+.history{max-height:260px;overflow:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.02);text-align:left}
-th{color:var(--muted);font-weight:600;font-size:12px}
+th{color:var(--muted);font-weight:700;font-size:12px}
 
-/* Footer small */
-.note{font-size:13px;color:var(--muted);margin-top:8px;text-align:center}
+/* note */
+.note{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}
 
-/* Responsive */
-@media(max-width:880px){
+/* responsive */
+@media(max-width:980px){
   .main{grid-template-columns:1fr}
-  .big{font-size:36px}
-  .brand{font-size:16px}
-  .right{order:2}
+  .big{font-size:40px}
+  .brand{font-size:18px}
 }
 
-/* Tiny helpers */
-.kv{display:flex;gap:8px;align-items:center;justify-content:center}
-.badge{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);font-weight:700}
+@media(max-width:520px){
+  .big{font-size:34px}
+  .info-item .val{font-size:16px}
+  .controls{gap:6px}
+  .btn{padding:8px 10px}
+}
 </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <div class="brand">RaceBox PRO</div>
-      <div class="subtitle">Drag Timer — 20 / 100 / 201 / 402</div>
+      <div class="subtitle">Drag Timer — 20 / 100 / 201 / 402 — Full Edition</div>
     </div>
 
     <div class="controls">
@@ -102,15 +114,15 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       <button id="saveBtn" class="btn">SAVE RUN</button>
       <button id="exportBtn" class="btn">EXPORT CSV</button>
 
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px">
+      <div class="control-right">
+        <label style="display:flex;align-items:center;gap:8px;color:var(--muted)">
           <input id="rollout" type="checkbox" /> 1 ft rollout
         </label>
       </div>
     </div>
 
     <div class="status card">
-      <div style="display:flex;gap:20px;align-items:center;width:100%;flex-wrap:wrap">
+      <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
         <div class="block">
           <div class="label">Status</div>
           <div id="status" class="big">idle</div>
@@ -131,7 +143,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
           <div id="time" class="big">0.000 s</div>
         </div>
 
-        <div class="block" style="margin-left:auto">
+        <div style="margin-left:auto">
           <div class="label">Accuracy</div>
           <div id="accuracy" class="small">— m</div>
         </div>
@@ -141,34 +153,29 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     <div class="main">
       <!-- LEFT -->
       <div class="card left">
-        <div style="width:100%;display:flex;gap:12px;align-items:center;justify-content:space-between">
-          <div class="kv">
-            <div class="badge">Peak</div>
-            <div id="peak" class="muted" style="font-weight:800;color:#fff">— km/h</div>
+        <div class="top-info" style="width:100%">
+          <div class="badge">Mode</div>
+          <div style="margin-left:8px">
+            <select id="modeSelect" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px;color:#dfeafe">
+              <option value="402">402 m</option>
+              <option value="201">201 m</option>
+              <option value="0-100">0-100</option>
+              <option value="0-140">0-140</option>
+              <option value="60-100">60-100</option>
+            </select>
           </div>
-          <div class="kv">
-            <div class="badge">Avg</div>
-            <div id="avg" class="muted" style="font-weight:800;color:#fff">—</div>
-          </div>
-          <div class="kv">
-            <div class="badge">Mode</div>
-            <div style="color:var(--muted);font-weight:700">
-              <select id="modeSelect" style="background:transparent;border:none;color:#dfeafe;font-weight:700">
-                <option value="402">402 m</option>
-                <option value="201">201 m</option>
-                <option value="0-100">0-100</option>
-                <option value="0-140">0-140</option>
-                <option value="60-100">60-100</option>
-              </select>
-            </div>
+
+          <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+            <div class="badge">Peak</div><div id="peak" style="font-weight:900">— km/h</div>
+            <div class="badge">G</div><div id="peakG" style="font-weight:900">—</div>
           </div>
         </div>
 
-        <div style="width:100%;margin-top:12px" class="graph">
-          <canvas id="speedGraph" width="700" height="120" style="width:100%;height:100%;border-radius:8px"></canvas>
+        <div class="graph" style="width:100%">
+          <canvas id="speedGraph" width="900" height="150" style="width:100%;height:100%"></canvas>
         </div>
 
-        <div style="width:100%;margin-top:12px" class="info-row">
+        <div class="info-row">
           <div class="info-item">
             <div class="val" id="spk">0.0</div>
             <div class="muted">Current km/h</div>
@@ -182,48 +189,78 @@ th{color:var(--muted);font-weight:600;font-size:12px}
             <div class="muted">Seconds</div>
           </div>
         </div>
+
+        <div style="width:100%;margin-top:6px;display:flex;gap:8px;align-items:center">
+          <div style="flex:1" class="box">
+            <div style="font-weight:800;margin-bottom:6px">Estimate WHP (from marker)</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label style="font-size:13px;color:var(--muted)">Mass (kg)</label>
+              <input id="massInput" type="number" min="40" value="150" style="width:100px">
+              <label style="font-size:13px;color:var(--muted)">Use marker</label>
+              <select id="estMarker" style="width:120px">
+                <option value="20">20 m</option>
+                <option value="100">100 m</option>
+                <option value="201" selected>201 m</option>
+                <option value="402">402 m</option>
+              </select>
+              <button id="estimateBtn" class="btn" style="padding:8px 10px">Estimate HP</button>
+            </div>
+            <div style="margin-top:8px;color:var(--muted)" id="estimateResult">—</div>
+          </div>
+
+          <div style="width:320px" class="box">
+            <div style="font-weight:800;margin-bottom:6px">Dyno Input / Compare</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+              <input id="dynoHP" type="number" placeholder="16.8" style="width:100px">
+              <input id="dynoHP_RPM" type="number" placeholder="8500" style="width:110px">
+              <button id="saveDynoBtn" class="btn" style="padding:8px 10px">Save Dyno</button>
+            </div>
+            <div style="font-size:13px;color:var(--muted)" id="dynoResult">Dyno not set</div>
+          </div>
+        </div>
       </div>
 
       <!-- RIGHT -->
       <div class="card right">
         <h3 style="margin:0 0 8px">Run Results</h3>
-
         <div class="milestones" id="runResults">
-          <!-- milestones will be injected here -->
           <div style="grid-column:1/3;color:var(--muted);text-align:center">No run yet. ARM then gas to start.</div>
         </div>
 
-        <div style="margin-top:12px">
-          <h4 style="margin:0 0 8px">History</h4>
-          <div class="history">
+        <div style="margin-top:12px" class="box">
+          <div style="font-weight:800;margin-bottom:8px">History</div>
+          <div class="history" style="max-height:200px;overflow:auto">
             <table id="historyTable">
-              <thead><tr><th>#</th><th>Mode</th><th>201s</th><th>402s</th><th>Peak</th><th>Date</th></tr></thead>
+              <thead><tr><th>#</th><th>Mode</th><th>20s</th><th>100s</th><th>201s</th><th>402s</th><th>Peak</th><th>Date</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
         </div>
 
-        <div style="margin-top:12px">
-          <h4 style="margin:0 0 8px">Raw (debug)</h4>
-          <pre id="rawRun">—</pre>
+        <div style="margin-top:12px" class="box">
+          <div style="font-weight:800;margin-bottom:8px">Raw (debug)</div>
+          <pre id="rawRun" style="height:120px;overflow:auto;margin:0;background:#081226;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)">—</pre>
         </div>
-
       </div>
     </div>
 
-    <div class="note">Tip: Gunakan iPhone atau ponsel GNSS multi-band & pasang di bracket untuk hasil terbaik.</div>
+    <div class="note">Tip: gunakan ponsel GNSS multi-frequency, pasang di bracket; jangan di kantong.</div>
   </div>
 
 <script>
-/* RaceBox PRO - script
+/* RaceBox PRO - Full script */
+/* Features:
    - start only when gas (>=3 km/h stable ~400ms)
    - milestones 20/100/201/402
-   - rollout support
-   - graph + history
+   - 1ft rollout
+   - graph + peak line
+   - G-force calculation
+   - dyno input + WHP estimation
+   - history + export
 */
 
 (function(){
-  // DOM
+  // DOM refs
   const armBtn = document.getElementById('armBtn');
   const stopBtn = document.getElementById('stopBtn');
   const resetBtn = document.getElementById('resetBtn');
@@ -237,18 +274,25 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   const accEl = document.getElementById('accuracy');
   const peakEl = document.getElementById('peak');
   const avgEl = document.getElementById('avg');
+  const spk = document.getElementById('spk');
+  const distk = document.getElementById('distk');
+  const timek = document.getElementById('timek');
   const runResults = document.getElementById('runResults');
   const rawRun = document.getElementById('rawRun');
   const historyTableBody = document.querySelector('#historyTable tbody');
   const speedGraph = document.getElementById('speedGraph');
-  const spk = document.getElementById('spk');
-  const distk = document.getElementById('distk');
-  const timek = document.getElementById('timek');
-  const modeSelect = document.getElementById('modeSelect');
-
   const ctx = speedGraph.getContext('2d');
+  const modeSelect = document.getElementById('modeSelect');
+  const estimateBtn = document.getElementById('estimateBtn');
+  const massInput = document.getElementById('massInput');
+  const estMarker = document.getElementById('estMarker');
+  const estimateResult = document.getElementById('estimateResult');
+  const dynoHP = document.getElementById('dynoHP');
+  const dynoHP_RPM = document.getElementById('dynoHP_RPM');
+  const saveDynoBtn = document.getElementById('saveDynoBtn');
+  const dynoResult = document.getElementById('dynoResult');
 
-  // State
+  // state
   let watchId = null;
   let armed = false;
   let running = false;
@@ -257,33 +301,58 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   let cumulative = 0;
   let startTime = null;
   let peakSpeed = 0;
-  let samples = []; // {t, speed}
+  let peakG = 0;
+  let samples = []; // {t, speed_kmh}
   let history = JSON.parse(localStorage.getItem('rb_history') || '[]');
 
   const MILESTONES = [20,100,201,402];
-  let marks = {}; // {20:{time,speed}, ...}
+  let marks = {}; // marks[m] = {time, speed}
+
+  // dyno saved
+  function loadDyno(){
+    const hp = localStorage.getItem('dyno_hp');
+    const rpm = localStorage.getItem('dyno_rpm');
+    if(hp){
+      dynoHP.value = hp;
+      dynoHP_RPM.value = rpm || '';
+      dynoResult.textContent = `Dyno: ${hp} HP @ ${rpm||'—'} RPM`;
+    } else {
+      dynoResult.textContent = 'Dyno not set';
+    }
+  }
+  loadDyno();
+
+  function saveDyno(){
+    const hp = parseFloat(dynoHP.value);
+    const rpm = parseInt(dynoHP_RPM.value);
+    if(isNaN(hp)){ alert('Masukkan dyno HP valid'); return; }
+    localStorage.setItem('dyno_hp', hp);
+    localStorage.setItem('dyno_rpm', rpm || '');
+    dynoResult.textContent = `Dyno: ${hp} HP @ ${rpm||'—'} RPM`;
+  }
+  saveDynoBtn.addEventListener('click', saveDyno);
 
   function setStatus(s){ statusBar.textContent = s; }
   function resetMarks(){ marks={}; MILESTONES.forEach(m=>marks[m]=null); }
   function resetUI(){
-    distanceEl.textContent="0.00 m";
-    timeEl.textContent="0.000 s";
-    speedDisplay.textContent="0.0 km/h";
-    peakEl.textContent="— km/h";
-    avgEl.textContent="—";
-    accEl.textContent="— m";
-    spk.textContent="0.0";
-    distk.textContent="0.00";
-    timek.textContent="0.000";
+    distanceEl.textContent='0.00 m';
+    timeEl.textContent='0.000 s';
+    speedDisplay.textContent='0.0 km/h';
+    peakEl.textContent='— km/h';
+    avgEl.textContent='—';
+    accEl.textContent='— m';
+    spk.textContent='0.0';
+    distk.textContent='0.00';
+    timek.textContent='0.000';
     runResults.innerHTML = '<div style="grid-column:1/3;color:var(--muted);text-align:center">No run yet. ARM then gas to start.</div>';
     rawRun.textContent = '—';
     clearGraph();
   }
   resetMarks();
 
-  // haversine
+  // haversine distance
   function hav(a,b){
-    const R=6371000; const r=Math.PI/180;
+    const R=6371000, r=Math.PI/180;
     const dLat=(b.latitude-a.latitude)*r;
     const dLon=(b.longitude-a.longitude)*r;
     const la=a.latitude*r, lb=b.latitude*r;
@@ -292,69 +361,79 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
   }
 
-  // GRAPH helpers
+  // graph helpers
   function clearGraph(){ ctx.clearRect(0,0,speedGraph.width,speedGraph.height); ctx.fillStyle='#071226'; ctx.fillRect(0,0,speedGraph.width,speedGraph.height); }
   function drawGraph(){
     clearGraph();
-    const pts = samples.slice(-140);
+    const pts = samples.slice(-200);
     if(pts.length===0) return;
-    const w=speedGraph.width, h=speedGraph.height;
+    const w = speedGraph.width, h = speedGraph.height;
     const maxSpeed = Math.max(100, ...pts.map(p=>p.speed));
-    ctx.strokeStyle = '#64d2ff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
+    ctx.strokeStyle = '#64d2ff'; ctx.lineWidth=2; ctx.beginPath();
     pts.forEach((p,i)=>{
       const x = (i/(pts.length-1))*w;
       const y = h - (p.speed/maxSpeed)*h;
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     });
     ctx.stroke();
-    // draw peak line
-    ctx.strokeStyle='rgba(255,59,48,0.25)'; ctx.setLineDash([4,4]);
+    // peak line
+    ctx.setLineDash([6,4]);
+    ctx.strokeStyle='rgba(255,59,48,0.18)';
     const pkY = h - (peakSpeed/maxSpeed)*h;
-    ctx.beginPath(); ctx.moveTo(0,pkY); ctx.lineTo(w,pkY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(0,pkY); ctx.lineTo(w,pkY); ctx.stroke();
+    ctx.setLineDash([]);
   }
 
-  // update run results UI
+  // render run results
   function renderRunResults(){
-    // build milestone blocks
-    runResults.innerHTML = '';
+    runResults.innerHTML='';
     for(let m of MILESTONES){
       const mk = marks[m];
       const container = document.createElement('div'); container.className='milestone';
-      const distDiv = document.createElement('div'); distDiv.className='dist'; distDiv.textContent = m + ' m';
-      const timeDiv = document.createElement('div'); timeDiv.className='time'; timeDiv.textContent = mk && mk.time ? mk.time.toFixed(2)+' s' : '—';
-      const spDiv = document.createElement('div'); spDiv.className='speed'; spDiv.textContent = mk && mk.speed ? mk.speed.toFixed(2)+' km/h' : '—';
-      container.appendChild(distDiv); container.appendChild(timeDiv); container.appendChild(spDiv);
+      const ddiv = document.createElement('div'); ddiv.className='dist'; ddiv.textContent = m + ' m';
+      const tdiv = document.createElement('div'); tdiv.className='time'; tdiv.textContent = mk && mk.time ? mk.time.toFixed(2)+' s' : '—';
+      const sdiv = document.createElement('div'); sdiv.className='speed'; sdiv.textContent = mk && mk.speed ? mk.speed.toFixed(2)+' km/h' : '—';
+      container.appendChild(ddiv); container.appendChild(tdiv); container.appendChild(sdiv);
       runResults.appendChild(container);
     }
-    // peak row
     const peakRow = document.createElement('div'); peakRow.style.gridColumn='1/3'; peakRow.style.textAlign='center'; peakRow.style.marginTop='8px';
-    peakRow.innerHTML = `<div style="font-weight:700">Peak: ${peakSpeed?peakSpeed.toFixed(2)+' km/h':'—'}</div>`;
+    peakRow.innerHTML = `<div style="font-weight:800">Peak: ${peakSpeed?peakSpeed.toFixed(2)+' km/h':'—'} &nbsp; • &nbsp; Peak G: ${peakG?peakG.toFixed(2)+' g':'—'}</div>`;
     runResults.appendChild(peakRow);
   }
 
-  // render history table
+  // history render
   function renderHistory(){
     historyTableBody.innerHTML='';
     history.forEach((h,i)=>{
-      const tr = document.createElement('tr');
-      const t201 = h.d201 ? h.d201.toFixed(3) : '';
-      const t402 = h.d402 ? h.d402.toFixed(3) : '';
-      tr.innerHTML = `<td>${i+1}</td><td>${h.mode||''}</td><td>${t201}</td><td>${t402}</td><td>${h.peak?h.peak.toFixed(1):''}</td><td>${new Date(h.date).toLocaleString()}</td>`;
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${i+1}</td><td>${h.mode||''}</td><td>${h.d20?h.d20.toFixed(3):''}</td><td>${h.d100?h.d100.toFixed(3):''}</td><td>${h.d201?h.d201.toFixed(3):''}</td><td>${h.d402?h.d402.toFixed(3):''}</td><td>${h.peak?h.peak.toFixed(1):''}</td><td>${new Date(h.date).toLocaleString()}</td>`;
       historyTableBody.appendChild(tr);
     });
   }
 
-  // finish run
+  // estimate WHP using kinetic energy method: 0.5*m*v^2 / t => W => HP
+  function estimateWHP(massKg, marker){
+    if(!window._lastRun || !window._lastRun.marks) return null;
+    const mk = window._lastRun.marks[marker];
+    if(!mk || !mk.time || !mk.speed) return null;
+    // speed in km/h -> m/s
+    const v = mk.speed / 3.6;
+    const t = mk.time;
+    if(t <= 0 || v <= 0) return null;
+    const energy = 0.5 * massKg * v * v; // J
+    const powerW = energy / t; // W average during period
+    const hp = powerW / 745.7;
+    return {hp: hp, powerW: powerW, v: v, t: t};
+  }
+
+  // finishing
   function finishRun(){
-    running=false; armed=false;
-    setStatus('finish — run complete');
-    // build last run
+    running=false; armed=false; setStatus('finish — run complete');
     const last = {
       mode: modeSelect ? modeSelect.value : '',
       date: Date.now(),
       peak: peakSpeed,
+      peakG: peakG,
       marks: JSON.parse(JSON.stringify(marks)),
       d20: marks[20] ? marks[20].time : null,
       d100: marks[100] ? marks[100].time : null,
@@ -364,11 +443,13 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       s100: marks[100] ? marks[100].speed : null,
       s201: marks[201] ? marks[201].speed : null,
       s402: marks[402] ? marks[402].speed : null,
-      distance: cumulative
+      distance: cumulative,
+      rollout: !!(rolloutChk && rolloutChk.checked)
     };
     window._lastRun = last;
     rawRun.textContent = JSON.stringify(last, null, 2);
     renderRunResults();
+    // auto-render history but do not auto-save
     renderHistory();
     if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
   }
@@ -376,40 +457,52 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   // position handler
   function onPos(p){
     const c = p.coords;
-    accEl.textContent = (c.accuracy||0).toFixed(1)+' m';
-
+    accEl.textContent = (c.accuracy||0).toFixed(1) + ' m';
     let speed = (c.speed || 0) * 3.6; // km/h
     if(speed < 2.5) speed = 0; // ghost filter
-
-    const cur = { latitude: c.latitude, longitude: c.longitude, speed: speed };
+    const cur = { latitude:c.latitude, longitude:c.longitude, speed: speed };
     const now = performance.now();
+
+    // compute acceleration (g)
+    if(samples.length>0){
+      const prev = samples[samples.length-1];
+      const dt = (now - prev.t)/1000;
+      if(dt>0){
+        const dv = (speed - prev.speed)/3.6; // m/s
+        const a = dv / dt; // m/s^2
+        const g = a / 9.80665;
+        if(g > peakG) peakG = g;
+      }
+    }
+
     samples.push({t: now, speed: speed});
-    samples = samples.filter(s => now - s.t <= 400);
+    samples = samples.filter(s => now - s.t <= 1000); // keep 1s for g smoothing and graph
 
     speedDisplay.textContent = speed.toFixed(1) + ' km/h';
     spk.textContent = speed.toFixed(1);
     if(speed > peakSpeed) peakSpeed = speed;
     peakEl.textContent = peakSpeed ? peakSpeed.toFixed(1)+' km/h' : '—';
+    document.getElementById('peakG').textContent = peakG?peakG.toFixed(2)+' g':'—';
 
-    // draw graph data
     drawGraph();
 
     if(!armed) return;
 
-    // initial GPS lock
     if(!startPos){
       if(c.accuracy <= 50){
         startPos = cur; lastPos = cur; setStatus('armed — waiting throttle'); return;
       } else { setStatus('arming — waiting GPS accuracy'); return; }
     }
 
-    // distance
     const d = hav(lastPos, cur);
     lastPos = cur;
 
-    // start logic: stable >=3 km/h
+    // start condition: stable >= 3 km/h in last ~400ms
     const startThreshold = 3;
-    const ready = samples.length>0 && samples.every(s => s.speed >= startThreshold);
+    const windowMs = 400;
+    const nowp = performance.now();
+    const recent = samples.filter(s => nowp - s.t <= windowMs);
+    const ready = recent.length>0 && recent.every(s => s.speed >= startThreshold);
 
     if(!running){
       if(ready){
@@ -417,7 +510,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       } else { setStatus('armed — waiting throttle'); return; }
     }
 
-    // running
+    // RUNNING
     cumulative += d;
     distanceEl.textContent = cumulative.toFixed(2) + ' m';
     distk.textContent = cumulative.toFixed(2);
@@ -429,10 +522,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     const avg = elapsed>0 ? (cumulative/elapsed)*3.6 : 0;
     avgEl.textContent = avg.toFixed(1);
 
-    // rollout offset
     const rolloutOffset = (rolloutChk && rolloutChk.checked) ? 0.3048 : 0;
 
-    // capture milestones
     for(let m of MILESTONES){
       if(!marks[m] && cumulative >= (m - rolloutOffset)){
         marks[m] = { time: elapsed, speed: speed };
@@ -440,12 +531,9 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       }
     }
 
-    // finish when 402 reached
-    if(marks[402]){
-      finishRun();
-    }
+    // finish conditions
+    if(marks[402]){ finishRun(); return; }
 
-    // mode-based finish (if modeSelect exists)
     if(modeSelect){
       const mode = modeSelect.value;
       if(mode === '201' && cumulative >= (201 - rolloutOffset)) finishRun();
@@ -453,8 +541,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       if(mode === '0-100' && peakSpeed >= 100) finishRun();
       if(mode === '0-140' && peakSpeed >= 140) finishRun();
       if(mode === '60-100'){
-        const sp = samples.map(s=>s.speed);
-        if(sp.some(s=>s>=60) && sp.some(s=>s>=100)) finishRun();
+        const sps = samples.map(s=>s.speed);
+        if(sps.some(s=>s>=60) && sps.some(s=>s>=100)) finishRun();
       }
     }
   }
@@ -462,12 +550,13 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   // arm / stop / reset / save / export
   function arm(){
     if(armed){
-      armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; samples=[]; resetMarks();
+      // disarm
+      armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; peakG=0; samples=[]; resetMarks();
       if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
       setStatus('idle'); resetUI(); return;
     }
     if(!('geolocation' in navigator)){ alert('Geolocation tidak tersedia'); return; }
-    running=false; armed=true; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; samples=[]; resetMarks();
+    running=false; armed=true; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; peakG=0; samples=[]; resetMarks();
     setStatus('arming — requesting GPS');
     if(watchId!==null) navigator.geolocation.clearWatch(watchId);
     watchId = navigator.geolocation.watchPosition(onPos, e => { setStatus('GPS error: ' + e.message); }, { enableHighAccuracy:true, maximumAge:0, timeout:10000 });
@@ -480,13 +569,17 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 
   function resetAll(){
     if(watchId){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-    armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; samples=[];
+    armed=false; running=false; startPos=null; lastPos=null; cumulative=0; startTime=null; peakSpeed=0; peakG=0; samples=[];
     resetMarks(); resetUI(); setStatus('idle');
   }
 
   function saveRun(){
     if(!window._lastRun){ alert('Tidak ada run untuk disimpan'); return; }
-    history.unshift(window._lastRun);
+    // append dyno info if available
+    const last = JSON.parse(JSON.stringify(window._lastRun));
+    const dynoHPv = parseFloat(localStorage.getItem('dyno_hp'));
+    if(dynoHPv) last.dynoHP = dynoHPv;
+    history.unshift(last);
     localStorage.setItem('rb_history', JSON.stringify(history));
     alert('Run disimpan.');
     renderHistory();
@@ -494,7 +587,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 
   function exportCSV(){
     if(history.length===0){ alert('History kosong'); return; }
-    const rows=[['d20_s','d100_s','d201_s','d402_s','s20_kmh','s100_kmh','s201_kmh','s402_kmh','peak_kmh','date']];
+    const rows = [['d20_s','d100_s','d201_s','d402_s','s20_kmh','s100_kmh','s201_kmh','s402_kmh','peak_kmh','peak_g','rollout','date']];
     history.forEach(h=>{
       rows.push([
         h.d20?h.d20.toFixed(3):'',
@@ -506,6 +599,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
         h.s201?h.s201.toFixed(2):'',
         h.s402?h.s402.toFixed(2):'',
         h.peak?h.peak.toFixed(2):'',
+        h.peakG?h.peakG.toFixed(2):'',
+        h.rollout?1:0,
         new Date(h.date).toISOString()
       ]);
     });
@@ -516,6 +611,19 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     URL.revokeObjectURL(url);
   }
 
+  // estimate button
+  estimateBtn.addEventListener('click', ()=>{
+    const mass = parseFloat(massInput.value);
+    const marker = parseInt(estMarker.value);
+    if(isNaN(mass) || mass <= 0){ alert('Masukkan mass (kg) yang valid'); return; }
+    const res = estimateWHP(mass, marker);
+    if(!res){ estimateResult.textContent='Marker data belum tersedia. Jalankan 1 run.'; return; }
+    estimateResult.innerHTML = `Estimate WHP: <strong>${res.hp.toFixed(2)} HP</strong> (avg power ${(res.powerW/1000).toFixed(2)} kW) — v=${(res.v).toFixed(2)} m/s, t=${res.t.toFixed(3)} s`;
+  });
+
+  // attach dyno save handler (done earlier)
+  // saveDynoBtn already bound
+
   // attach events
   armBtn.addEventListener('click', arm);
   stopBtn.addEventListener('click', stop);
@@ -525,15 +633,19 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 
   // init
   resetUI(); renderHistory();
+  setStatus('idle');
 
   // service worker optional
   if('serviceWorker' in navigator){
     try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){}
   }
 
-  // expose for debug
-  window.RaceBox = { state: ()=>({armed,running,cumulative,peakSpeed,marks,history}), lastRun: ()=>window._lastRun||null };
-
+  // expose debug
+  window.RaceBox = {
+    state: ()=>({armed,running,cumulative,peakSpeed,peakG,marks,history}),
+    lastRun: ()=>window._lastRun || null,
+    estimateWHP: estimateWHP
+  };
 })();
 </script>
 </body>
